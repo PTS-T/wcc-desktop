@@ -24,6 +24,13 @@ const output=process.env.WCC_TEST_ARTIFACT_DIR;if(output)fs.mkdirSync(output,{re
   await upload('initial-admin.wcc-key.json',envelope);
   assert.equal(await page.locator('#loginPass').isVisible(),false);
   assert.equal(await page.locator('#loginUser').isVisible(),false);
+  assert.equal(await page.locator('#keyPassphrase').isVisible(),false);
+  assert.equal(await page.locator('#connectButton').isDisabled(),true);
+  assert.ok((await page.locator('#keyModeHelp').textContent()).includes('initial-admin.key'));
+  await page.locator('#loginForm').evaluate(f=>f.requestSubmit());
+  await page.waitForFunction(()=>document.querySelector('#keyError').textContent.includes('initial-admin.key'));
+  assert.equal(challenges,0);
+  await page.locator('#enableEncryptedKey').click();
   assert.equal(await page.locator('#keyPassphrase').isVisible(),true);
   assert.equal(await page.locator('#keyPassphrase').evaluate(e=>e===document.activeElement),true);
   await page.locator('#connectButton').click();
@@ -39,7 +46,7 @@ const output=process.env.WCC_TEST_ARTIFACT_DIR;if(output)fs.mkdirSync(output,{re
   assert.equal(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('currentUser')).role),'superadmin');
   console.log('PASS phrase survives file reselection and real encrypted admin login succeeds');
   await logout();await page.goto(url+'/login.html');
-  await upload('initial-admin.wcc-key.json',envelope);await page.locator('#keyPassphrase').fill(phrase);
+  await upload('initial-admin.wcc-key.json',envelope);await page.locator('#enableEncryptedKey').click();await page.locator('#keyPassphrase').fill(phrase);
   await page.locator('#clearKeyFile').click();
   assert.ok((await page.locator('#keyPassphrase').inputValue()).length===0,'Switching modes did not clear the unlock phrase');
   assert.equal(await page.locator('#loginPass').isVisible(),true);
@@ -52,7 +59,7 @@ const output=process.env.WCC_TEST_ARTIFACT_DIR;if(output)fs.mkdirSync(output,{re
   await page.locator('#connectButton').click();await page.waitForURL('**/home.html');
   console.log('PASS legacy plaintext key login still succeeds');
   assert.equal(leaked,false);assert.deepEqual(errors,[]);await logout();
-  const report={passwordFieldsHidden:true,emptyPhraseFocus:true,phraseSurvivesReselection:true,encryptedLogin:true,passwordModeRestore:true,legacyLogin:true,passphraseTransmitted:false,errors};
+  const report={encryptedPromptRequiresOptIn:true,encryptedDefaultBlocksChallenge:true,passwordFieldsHidden:true,emptyPhraseFocus:true,phraseSurvivesReselection:true,encryptedLogin:true,passwordModeRestore:true,legacyLogin:true,passphraseTransmitted:false,errors};
   if(output)fs.writeFileSync(path.join(output,'browser-checks.json'),JSON.stringify(report,null,2));
   console.log(JSON.stringify(report));await context.close();
  }finally{await browser.close();}

@@ -224,10 +224,12 @@
                     <div id="keyDrop">
                         <input type="file" id="keyFileInput" accept=".key,.json" style="display:none">
                         <button type="button" class="btn-auth btn-auth-secondary" style="margin-top:0;" onclick="document.getElementById('keyFileInput').click()">📁 Choose Key File</button>
+                        <p style="font-size:0.85em; color:#9ddcff; margin:10px 0;">เลือกไฟล์ .key เพื่อเข้าสู่ระบบโดยไม่ต้องกรอกรหัส</p>
                         <div id="keyFileName" style="font-size:0.8em; color:#aaa; margin-top:8px;">or drag &amp; drop your key here</div>
                     </div>
                     <p id="keyModeHelp" style="display:none; font-size:0.85em; color:#9ddcff; margin:12px 0;">ใช้ไฟล์คีย์ที่เลือกเพื่อเข้าสู่ระบบ</p>
                     <button type="button" id="clearKeyFile" class="btn-auth btn-auth-secondary" style="display:none;" onclick="clearSelectedKey()">ใช้ชื่อผู้ใช้ / รหัสผ่าน</button>
+                    <button type="button" id="enableEncryptedKey" class="btn-auth btn-auth-secondary" style="display:none;" onclick="enableEncryptedKeyLogin()">ใช้ไฟล์เข้ารหัสพร้อมรหัสปลดล็อก</button>
                     <div id="keyPassphraseGroup" class="input-group" style="display:none; margin-top:12px;">
                         <label for="keyPassphrase">KEY PASSPHRASE · รหัสปลดล็อกไฟล์คีย์</label>
                         <input type="password" id="keyPassphrase" autocomplete="off" placeholder="รหัสปลดล็อกที่ได้รับคู่กับไฟล์คีย์">
@@ -443,7 +445,7 @@
         }
 
         // ---- Key-file login (ECDSA P-256 challenge-response via WebCrypto) ----
-        let loadedKeyText = null, keyFileReading = false, keyReadSerial = 0, keyLoginBusy = false;
+        let loadedKeyText = null, keyFileReading = false, keyReadSerial = 0, keyLoginBusy = false, encryptedKeyEnabled = false;
         function b64ToBuf(b64) { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
         function bufToB64(buf) { const u = new Uint8Array(buf); let bin = ''; for (let i = 0; i < u.length; i++) bin += String.fromCharCode(u[i]); return btoa(bin); }
         // WebCrypto (key login) only works in a secure context (HTTPS or localhost).
@@ -460,18 +462,26 @@
             const inp = document.getElementById('keyFileInput');
             const drop = document.getElementById('keyDrop');
             function showKeyMode(encrypted) {
+                const unlock=encrypted && encryptedKeyEnabled;
                 document.getElementById('passwordLoginFields').style.display='none';
                 document.getElementById('keyModeHelp').style.display='block';
                 document.getElementById('keyModeHelp').textContent=encrypted
-                    ? 'กรอกรหัสปลดล็อกที่ได้รับคู่กับไฟล์คีย์ในช่องด้านล่าง แล้วกด Unlock & Connect'
-                    : 'ใช้ไฟล์คีย์ที่เลือกเพื่อเข้าสู่ระบบ';
+                    ? (unlock ? 'กรอกรหัสปลดล็อกที่ได้รับคู่กับไฟล์เข้ารหัส แล้วกด Unlock & Connect' : 'ไฟล์ที่เลือกเป็นไฟล์เข้ารหัส หากต้องการเข้าโดยไม่กรอกรหัส ให้เลือก initial-admin.key ที่แนบใน Wall แทนไฟล์ .wcc-key.json')
+                    : 'พร้อมเข้าสู่ระบบด้วยไฟล์คีย์ ไม่ต้องกรอกชื่อผู้ใช้หรือรหัสผ่าน';
                 document.getElementById('clearKeyFile').style.display='inline-block';
-                document.getElementById('keyPassphraseGroup').style.display=encrypted?'block':'none';
-                document.getElementById('connectButton').textContent=encrypted?'Unlock & Connect':'Connect with Key';
-                if(encrypted) document.getElementById('keyPassphrase').focus();
+                document.getElementById('keyPassphraseGroup').style.display=unlock?'block':'none';
+                document.getElementById('enableEncryptedKey').style.display=encrypted&&!unlock?'inline-block':'none';
+                document.getElementById('connectButton').disabled=encrypted&&!unlock;
+                document.getElementById('connectButton').textContent=encrypted?(unlock?'Unlock & Connect':'เลือกไฟล์ .key เพื่อเข้าโดยไม่กรอกรหัส'):'Connect with Key';
+                if(unlock) document.getElementById('keyPassphrase').focus();
             }
+            window.enableEncryptedKeyLogin=function(){
+                encryptedKeyEnabled=true;showKeyMode(true);
+            };
             window.clearSelectedKey=function(){
-                ++keyReadSerial;keyFileReading=false;loadedKeyText=null;inp.value='';
+                ++keyReadSerial;keyFileReading=false;loadedKeyText=null;inp.value='';encryptedKeyEnabled=false;
+                document.getElementById('enableEncryptedKey').style.display='none';
+                document.getElementById('connectButton').disabled=false;
                 document.getElementById('keyPassphrase').value='';
                 document.getElementById('keyFileName').textContent='or drag & drop your key here';
                 document.getElementById('passwordLoginFields').style.display='';
@@ -514,6 +524,7 @@
                 if (!loadedKeyText) throw new Error('Please choose your key file first.');
                 let obj; try { obj = JSON.parse(loadedKeyText); } catch (_) { throw new Error('Invalid key file format.'); }
                 if (obj.type === 'wcc-encrypted-login-key') {
+                    if(!encryptedKeyEnabled)throw new Error('เลือกไฟล์ initial-admin.key ที่แนบใน Wall เพื่อเข้าโดยไม่กรอกรหัส');
                     const phrase=document.getElementById('keyPassphrase');
                     if(!phrase.value){phrase.focus();throw new Error('กรอกรหัสปลดล็อกในช่อง KEY PASSPHRASE ใต้ชื่อไฟล์คีย์');}
                     obj=await WccKeyEnvelope.decryptKey(obj,phrase.value);
