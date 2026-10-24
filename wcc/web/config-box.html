@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Config Box - Web Containers Chain</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-0: #0a0e1a;
+            --bg-1: #0e1424;
+            --surface: rgba(255, 255, 255, 0.04);
+            --surface-2: rgba(255, 255, 255, 0.06);
+            --border: rgba(255, 255, 255, 0.09);
+            --border-strong: rgba(255, 255, 255, 0.18);
+            --accent: #22d3ee;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --radius: 16px;
+        }
+
+        * { box-sizing: border-box; }
+
+        body, html {
+            height: 100%; margin: 0; padding: 0;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--text); -webkit-font-smoothing: antialiased;
+        }
+        body {
+            min-height: 100vh;
+            background:
+                radial-gradient(900px 500px at 12% -10%, rgba(34, 211, 238, 0.10), transparent 60%),
+                radial-gradient(800px 500px at 100% 0%, rgba(99, 102, 241, 0.10), transparent 55%),
+                linear-gradient(180deg, var(--bg-1), var(--bg-0));
+            background-attachment: fixed;
+        }
+
+        /* Subtle dotted-grid ambience (re-uses the existing element) */
+        .stars-small {
+            position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            width: auto; height: auto; opacity: 1; box-shadow: none; animation: none;
+            background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.04) 1px, transparent 0);
+            background-size: 28px 28px;
+        }
+
+        .admin-header {
+            position: sticky; top: 0; z-index: 50;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 30px; margin-bottom: 24px;
+            background: rgba(10, 14, 26, 0.7); backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .admin-container { max-width: 1400px; margin: 0 auto; padding: 8px 24px 60px; position: relative; z-index: 20; }
+
+        .glass-box {
+            background: var(--surface); backdrop-filter: blur(12px);
+            border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 24px 26px; margin-bottom: 26px;
+            box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+        }
+
+        h2 {
+            color: #f1f5f9; margin: 0 0 6px; padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; flex-wrap: wrap; font-size: 1.2em; font-weight: 650; letter-spacing: 0.2px;
+        }
+        h2 i { color: var(--accent); }
+
+        .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; color: var(--text); font-size: 0.88em; }
+        th, td { padding: 11px 10px; text-align: left; border: none; border-bottom: 1px solid rgba(255, 255, 255, 0.06); vertical-align: middle; }
+        th {
+            background: rgba(34, 211, 238, 0.07); color: var(--accent); font-weight: 650; text-align: center;
+            text-transform: uppercase; font-size: 0.82em; letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(34, 211, 238, 0.25);
+        }
+        tbody tr:hover td { background: rgba(255, 255, 255, 0.025); }
+        .desc-row td { padding-top: 0; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+        .desc-row:hover td { background: transparent; }
+
+        /* Inputs */
+        input[type="text"], select {
+            width: 100%; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border);
+            color: var(--text); padding: 8px 10px; border-radius: 8px; box-sizing: border-box;
+            font-size: 0.92em; transition: border-color .15s, box-shadow .15s, background .15s;
+        }
+        input[type="text"]::placeholder { color: #6b7280; }
+        input[type="text"]:focus, select:focus {
+            outline: none; border-color: var(--accent); background: rgba(34, 211, 238, 0.06);
+            box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15);
+        }
+        select option { background: #0e1424; color: var(--text); }
+        input[type="checkbox"] { transform: scale(1.25); cursor: pointer; accent-color: var(--accent); }
+
+        input[type="color"] { -webkit-appearance: none; appearance: none; border: none; background: none; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+
+        /* color swatch (opens the color+opacity popover) — checkerboard shows through transparency */
+        .cswatch { display:inline-block; width:34px; height:22px; border:1px solid #444; border-radius:5px; cursor:pointer; overflow:hidden; vertical-align:middle;
+            background-image: linear-gradient(45deg,#5b5b66 25%,transparent 25%), linear-gradient(-45deg,#5b5b66 25%,transparent 25%), linear-gradient(45deg,transparent 75%,#5b5b66 75%), linear-gradient(-45deg,transparent 75%,#5b5b66 75%);
+            background-size: 8px 8px; background-position: 0 0, 0 4px, 4px -4px, -4px 0; }
+        .cswatch.round { border-radius: 50%; }
+        .cswatch-in { display:block; width:100%; height:100%; }
+        #colorPop { display:none; position:absolute; z-index:500; background:#0e1424; border:1px solid var(--border-strong); border-radius:12px; padding:14px; box-shadow:0 25px 60px -15px rgba(0,0,0,0.85); min-width:210px; }
+        #colorPop input[type="color"] { width:44px; height:44px; padding:0; border:1px solid #444; border-radius:8px; cursor:pointer; }
+        #colorPop input[type="range"] { width:150px; }
+
+        /* Buttons */
+        .btn {
+            padding: 7px 14px; border: 1px solid var(--border-strong); border-radius: 9px; cursor: pointer;
+            transition: .18s ease; display: inline-flex; align-items: center; gap: 7px;
+            font-size: 0.84em; font-weight: 600; background: var(--surface-2); color: #cbd5e1; white-space: nowrap;
+        }
+        .btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: var(--border-strong); transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+        .btn-success { border-color: rgba(46, 204, 113, 0.45); color: #34d399; }
+        .btn-success:hover { background: rgba(46, 204, 113, 0.16); border-color: #34d399; color: #6ee7b7; }
+        .btn-danger { border-color: rgba(231, 76, 60, 0.45); color: #f87171; }
+        .btn-danger:hover { background: rgba(231, 76, 60, 0.16); border-color: #f87171; color: #fca5a5; }
+        .btn-info { border-color: rgba(56, 189, 248, 0.45); color: #38bdf8; }
+        .btn-info:hover { background: rgba(56, 189, 248, 0.16); border-color: #38bdf8; color: #7dd3fc; }
+        .btn-warning { border-color: rgba(241, 196, 15, 0.45); color: #facc15; }
+        .btn-warning:hover { background: rgba(241, 196, 15, 0.16); border-color: #facc15; color: #fde047; }
+        .btn-purple { border-color: rgba(167, 139, 250, 0.45); color: #a78bfa; }
+        .btn-purple:hover { background: rgba(167, 139, 250, 0.16); border-color: #a78bfa; color: #c4b5fd; }
+
+        .code-box {
+            background: #0b0f1a; border: 1px solid var(--border); padding: 16px; border-radius: 12px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace; white-space: pre-wrap;
+            margin-top: 16px; display: none; color: var(--accent); font-size: 0.85em; line-height: 1.6;
+        }
+
+        .back-btn {
+            background: var(--surface-2); color: #cbd5e1; border: 1px solid var(--border-strong);
+            padding: 7px 13px; border-radius: 9px; cursor: pointer; margin-right: 16px; text-decoration: none;
+            font-size: 0.85em; font-weight: 600; transition: .18s; display: inline-flex; align-items: center; gap: 7px;
+        }
+        .back-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+
+        /* Modal */
+        .modal-box { box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    </style>
+</head>
+<body>
+    <div class="stars-small"></div>
+
+    <div class="admin-header">
+        <div style="display: flex; align-items: center; gap: 4px;">
+            <a href="javascript:history.back()" class="back-btn"><i class="fas fa-arrow-left"></i> Back</a>
+            <span style="font-weight: 700; font-size: 1.05em; letter-spacing: 0.3px; color: #f1f5f9;">
+                <i class="fas fa-sliders-h" style="color:#22d3ee; margin-right:8px;"></i>Config Box
+            </span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:0.78em; color:#94a3b8; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); padding:3px 8px; border-radius:6px; margin-left:10px;">menu_config.js</span>
+        </div>
+    </div>
+
+    <div class="admin-container">
+        <div class="glass-box" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <span style="font-weight:650; color:#f1f5f9;"><i class="fas fa-layer-group" style="color:#22d3ee; margin-right:6px;"></i>Zone</span>
+            <button id="zonePublicBtn" class="btn" onclick="setZone('public')"><i class="fas fa-globe"></i> Public</button>
+            <button id="zonePrivateBtn" class="btn" onclick="setZone('private')"><i class="fas fa-lock"></i> Private</button>
+            <span style="color:#94a3b8; font-size:0.85em;">เลือกโซนเพื่อดู/ตั้งค่าเฉพาะกล่องในโซนนั้น · <b>Public</b> = กล่องที่โชว์หน้าเว็บสาธารณะ (ไม่ต้อง login) · <b>Private</b> = กล่องหลัง login · ตั้งสี/ค่าแยกกันต่อกล่องได้</span>
+        </div>
+
+        <div class="glass-box" style="display:flex; gap:22px; align-items:center; flex-wrap:wrap;">
+            <span style="font-weight:650; color:#f1f5f9;"><i class="fas fa-palette" style="color:#22d3ee; margin-right:6px;"></i>Header bar <span id="hdrZoneLabel" style="color:#22d3ee;">(Public)</span></span>
+            <label style="display:flex; align-items:center; gap:8px; color:#cbd5e1; font-size:0.85em;">Background <span id="hbgSwatch"></span></label>
+            <label style="display:flex; align-items:center; gap:8px; color:#cbd5e1; font-size:0.85em;">Text <span id="htxSwatch"></span></label>
+            <button class="btn btn-warning" style="padding:4px 10px; font-size:0.78em;" onclick="resetHeaderZone()" title="คืนค่าสีเริ่มต้นของโซนนี้">⟳ Default</button>
+            <span style="color:#94a3b8; font-size:0.82em;">สีแถบ header <b>แยกกันระหว่าง Public กับ Private</b> — สลับโซนด้านบนเพื่อตั้งของอีกโซน · คลิก swatch เพื่อเลือกสี+ความโปร่งใส · กด <b>⟳ Default</b> เพื่อคืนค่าเริ่มต้น (หรือปุ่ม Clear ใน popover) · ปุ่มที่ติ๊ก "Blend" จะพื้นใส + ตัวอักษรสีตรงข้ามพื้น header อัตโนมัติ</span>
+        </div>
+
+        <div class="glass-box" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+            <span style="font-weight:650; color:#f1f5f9;"><i class="fas fa-signature" style="color:#22d3ee; margin-right:6px;"></i>ชื่อแบรนด์ (ซ้ายบน) <span id="brandZoneLabel" style="color:#22d3ee;">(Public)</span></span>
+            <div id="brandPrivWrap" style="display:none; align-items:center; gap:8px;">
+                <label style="color:#cbd5e1; font-size:0.85em;">ข้อความ (หลัง login)</label>
+                <input id="brandPrivInput" placeholder="ว่าง = group/project ย่อเมื่อยาว (ค่าเริ่มต้น)" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#f1f5f9; border-radius:6px; padding:5px 9px; font-size:0.85em;" oninput="onBrandInput()">
+                <button type="button" title="group/project เต็ม (ไม่ย่อ)" onclick="var pi=document.getElementById('brandPrivInput'); pi.value='{project}'; onBrandInput();" style="background:rgba(139,92,246,0.25); border:1px solid rgba(139,92,246,0.5); color:#c4b5fd; border-radius:6px; padding:5px 9px; font-size:0.8em; cursor:pointer;">group/project</button>
+                <button type="button" title="group/project โดยย่อส่วนที่ยาวเกิน 7 ตัว (ค่าเริ่มต้น)" onclick="var pi=document.getElementById('brandPrivInput'); pi.value='{project:short}'; onBrandInput();" style="background:rgba(34,211,238,0.22); border:1px solid rgba(34,211,238,0.5); color:#67e8f9; border-radius:6px; padding:5px 9px; font-size:0.8em; cursor:pointer;">group/project (ย่อ)</button>
+            </div>
+            <div id="brandPubWrap" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <label style="color:#cbd5e1; font-size:0.85em;">บรรทัด 1 (ใหญ่)</label>
+                <input id="brandPub1Input" placeholder="Web Containers Chain" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#f1f5f9; border-radius:6px; padding:5px 9px; font-size:0.85em;" oninput="onBrandInput()">
+                <label style="color:#cbd5e1; font-size:0.85em;">บรรทัด 2 (เล็ก)</label>
+                <input id="brandPub2Input" placeholder="Multi-Agent Platform" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#f1f5f9; border-radius:6px; padding:5px 9px; font-size:0.85em;" oninput="onBrandInput()">
+            </div>
+            <span style="color:#94a3b8; font-size:0.82em;">สลับโซน Public/Private ด้านบนเพื่อตั้งชื่อของแต่ละโซน · <b>Private</b> = ข้อความซ้ายบนหลัง login · <b>Public</b> = หัวหน้า public (2 บรรทัดแยกขนาด)</span>
+        </div>
+
+        <div class="glass-box" id="faviconBox" style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+            <span style="font-weight:650; color:#f1f5f9;"><i class="fas fa-image" style="color:#22d3ee; margin-right:6px;"></i>Favicon (ไอคอนแท็บเบราว์เซอร์)</span>
+            <label style="color:#cbd5e1; font-size:0.85em; display:flex; align-items:center; gap:5px;"><input type="radio" name="favMode" value="icon" onchange="onFavModeChange()"> FontAwesome</label>
+            <label style="color:#cbd5e1; font-size:0.85em; display:flex; align-items:center; gap:5px;"><input type="radio" name="favMode" value="image" onchange="onFavModeChange()"> อัปโหลดรูป</label>
+            <label style="color:#cbd5e1; font-size:0.85em; display:flex; align-items:center; gap:5px;"><input type="radio" name="favMode" value="" onchange="onFavModeChange()"> Default</label>
+            <div id="favIconWrap" style="display:none; align-items:center; gap:8px; flex-wrap:wrap;">
+                <input id="favIconInput" placeholder="fa-solid fa-dog" title="คลาส FontAwesome เช่น fa-solid fa-dog / fa-brands fa-github" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#f1f5f9; border-radius:6px; padding:5px 9px; font-size:0.85em; width:190px;" oninput="onFavInput()">
+                <label style="color:#cbd5e1; font-size:0.85em;">สี</label>
+                <input id="favColorInput" type="color" value="#22d3ee" style="width:38px; height:30px; background:transparent; border:1px solid rgba(255,255,255,0.12); border-radius:6px; cursor:pointer;" oninput="onFavInput()">
+            </div>
+            <div id="favImgWrap" style="display:none; align-items:center; gap:8px;">
+                <input id="favImgInput" type="file" accept="image/*" onchange="onFavFile(event)" style="color:#cbd5e1; font-size:0.8em;">
+            </div>
+            <span style="display:flex; align-items:center; gap:6px; color:#94a3b8; font-size:0.82em;">พรีวิว <img id="favPreview" alt="" style="width:24px; height:24px; border:1px solid rgba(255,255,255,0.15); border-radius:4px; background:#0b1220; object-fit:contain;"></span>
+            <span style="color:#94a3b8; font-size:0.82em;">ไอคอนบนแท็บเบราว์เซอร์ของทั้งเว็บ — เลือก FontAwesome (คลาส + สี) หรืออัปโหลดรูป (ย่ออัตโนมัติเป็น 64×64)</span>
+        </div>
+
+        <div class="glass-box" id="guestZoneBox">
+            <h2 style="font-size: 1.25em;">
+                <span><i class="fas fa-globe"></i> Guest Public View (First Box)</span>
+            </h2>
+            <div style="overflow-x: auto; margin-bottom: 10px;">
+                <table id="guestConfigTable">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">ID</th>
+                            <th style="text-align: left;">Name (Label)</th>
+                            <th style="text-align: left;">Icon & Show</th>
+                            <th style="text-align: left;">Target URL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="guestConfigTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="glass-box">
+            <h2>
+                ⚙️ User Menus Customization
+                <div class="header-actions" style="gap: 8px;">
+                    <button class="btn btn-purple" onclick="openNginxModal()"><i class="fas fa-server"></i> Nginx Config</button>
+                    <button class="btn btn-success" onclick="saveToServer()"><i class="fas fa-save"></i> Save to Server (Real-time)</button>
+                    <button class="btn btn-info" onclick="downloadConfig()"><i class="fas fa-download"></i> Download Backup</button>
+                    <button class="btn btn-warning" onclick="copyConfigCode()" title="Copy JS Code"><i class="fas fa-copy"></i></button>
+                    <button class="btn" style="border-color:#fff; color:#fff;" onclick="addMenuRow()"><i class="fas fa-plus"></i> Add Button</button>
+                </div>
+            </h2>
+            <div style="overflow-x: auto;">
+                <div style="font-weight:650; color:#7dd3fc; margin:6px 0 4px; font-size:1.02em;"><i class="fas fa-arrow-left"></i> Left — ชิดซ้ายในแถบ header</div>
+                <table id="configTableLeft">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">Order</th>
+                            <th>ID <button class="btn" style="padding:2px 4px; background:none; border:none; color:#00d2ff;" onclick="toggleHide('id')"><i id="icon-hide-id" class="fas fa-eye-slash"></i></button></th>
+                            <th>Name (Label)</th>
+                            <th>Icon & Show <button class="btn" style="padding:2px 4px; background:none; border:none; color:#00d2ff;" onclick="toggleHide('icon')"><i id="icon-hide-icon" class="fas fa-eye-slash"></i></button></th>
+                            <th>Target URL <button class="btn" style="padding:2px 4px; background:none; border:none; color:#00d2ff;" onclick="toggleHide('url')"><i id="icon-hide-url" class="fas fa-eye-slash"></i></button></th>
+                            <th>Type (Link Mode)</th>
+                            <th>Colors (BG / Text)</th>
+                            <th style="width: 50px;">Active</th>
+                            <th style="width: 50px;">Admin</th>
+                            <th style="width: 40px;">Del</th>
+                        </tr>
+                    </thead>
+                    <tbody id="configTableBodyLeft"><!-- Left boxes --></tbody>
+                </table>
+
+                <div style="font-weight:650; color:#fca5a5; margin:22px 0 4px; font-size:1.02em;"><i class="fas fa-arrow-right"></i> Right — ชิดขวาในแถบ header</div>
+                <table id="configTableRight">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">Order</th>
+                            <th>ID</th>
+                            <th>Name (Label)</th>
+                            <th>Icon & Show</th>
+                            <th>Target URL</th>
+                            <th>Type (Link Mode)</th>
+                            <th>Colors (BG / Text)</th>
+                            <th style="width: 50px;">Active</th>
+                            <th style="width: 50px;">Admin</th>
+                            <th style="width: 40px;">Del</th>
+                        </tr>
+                    </thead>
+                    <tbody id="configTableBodyRight"><!-- Right boxes --></tbody>
+                </table>
+            </div>
+
+            <div id="codeDisplay" class="code-box"></div>
+        </div>
+    </div>
+
+    <div id="nginxModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:200; justify-content:center; align-items:center;">
+        <div class="modal-box" style="background:#0e1424; border:1px solid rgba(255,255,255,0.1); padding:24px 28px; border-radius:18px; width:90%; max-width:1000px;">
+            <h3 style="margin-top:0; color:#f1f5f9; font-size:1.35em; font-weight:650; display:flex; align-items:center; justify-content:space-between;">
+                <span><i class="fas fa-server" style="color:#22d3ee;"></i> Edit nginx.conf</span>
+                <span id="nginxStatus" style="font-size:0.6em; font-weight:normal; color:#94a3b8;"></span>
+            </h3>
+            <textarea id="nginxCode" style="width:100%; height:60vh; background:#0b0f1a; color:#7dd3fc; font-family:'JetBrains Mono','Fira Code',monospace; border:1px solid rgba(255,255,255,0.1); padding:16px; box-sizing:border-box; border-radius:12px; font-size:0.92em; line-height:1.5;" spellcheck="false"></textarea>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+                <div style="color:#e74c3c; font-size:0.85em; max-width: 60%;">
+                    <i class="fas fa-exclamation-triangle"></i> Note: To apply changes, you may need to restart the proxy manually or run <br><b>docker compose up -d --build gateway</b>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" style="border: 1px solid #555; color: #fff;" onclick="closeNginxModal()">Cancel</button>
+                    <button class="btn btn-warning" disabled title="Edit gateway/nginx.conf and rebuild gateway"><i class="fas fa-save"></i> Save nginx.conf</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>document.write('<script src="menu_config.js?v=' + Date.now() + '"><\/script>');</script>
+    <script>document.write('<script src="brand_favicon.js?v=' + Date.now() + '"><\/script>');</script>
+    <script>
+        const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+        if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'superadmin')) {
+            window.top.location.href = 'index.html';
+        }
+
+        let editableMenus = [];
+        let hiddenCols = { id: true, icon: true, url: true };
+        let currentZone = 'public';   // โซนที่กำลังดู/ตั้งค่า (public | private)
+        // สีแถบ header แยกตามโซน (public / private) · เก็บใน appConfig.headerBg{Public,Private}/headerText{Public,Private}
+        let headerBgPub = '', headerTextPub = '', headerBgPriv = '', headerTextPriv = '';
+        function _curHeaderBg(v){ if(v!==undefined){ if(currentZone==='public') headerBgPub=v; else headerBgPriv=v; return; } return currentZone==='public'?headerBgPub:headerBgPriv; }
+        function _curHeaderText(v){ if(v!==undefined){ if(currentZone==='public') headerTextPub=v; else headerTextPriv=v; return; } return currentZone==='public'?headerTextPub:headerTextPriv; }
+        // brand name (top-left) per zone: private = 1 line (after login), public = 2 lines (different sizes)
+        let brandPrivate = '', brandPublic1 = '', brandPublic2 = '';
+        let faviconMode = '', faviconIcon = '', faviconColor = '#22d3ee', faviconImage = '';
+        function applyBrandZoneUI() {
+            const lab = document.getElementById('brandZoneLabel'); if (lab) lab.textContent = '(' + (currentZone === 'public' ? 'Public' : 'Private') + ')';
+            const pw = document.getElementById('brandPrivWrap'), qw = document.getElementById('brandPubWrap');
+            if (pw) pw.style.display = (currentZone === 'private') ? 'flex' : 'none';
+            if (qw) qw.style.display = (currentZone === 'public') ? 'flex' : 'none';
+            const pi = document.getElementById('brandPrivInput'); if (pi) pi.value = brandPrivate;
+            const q1 = document.getElementById('brandPub1Input'); if (q1) q1.value = brandPublic1;
+            const q2 = document.getElementById('brandPub2Input'); if (q2) q2.value = brandPublic2;
+        }
+        function onBrandInput() {
+            const pi = document.getElementById('brandPrivInput'); if (pi) brandPrivate = pi.value;
+            const q1 = document.getElementById('brandPub1Input'); if (q1) brandPublic1 = q1.value;
+            const q2 = document.getElementById('brandPub2Input'); if (q2) brandPublic2 = q2.value;
+            if (typeof autoSaveToServer === 'function') autoSaveToServer();
+            if (typeof updateCodeDisplay === 'function') updateCodeDisplay();
+        }
+
+        // ── Favicon (browser-tab icon) — FontAwesome class+color OR uploaded image ──
+        function initFaviconUI() {
+            document.querySelectorAll('input[name="favMode"]').forEach(r => { r.checked = (r.value === (faviconMode || '')); });
+            const ii = document.getElementById('favIconInput'); if (ii) ii.value = faviconIcon || '';
+            const ci = document.getElementById('favColorInput'); if (ci) ci.value = faviconColor || '#22d3ee';
+            onFavModeChange(true);
+        }
+        function onFavModeChange(noSave) {
+            const sel = (document.querySelector('input[name="favMode"]:checked') || {}).value || '';
+            faviconMode = sel;
+            const iw = document.getElementById('favIconWrap'); if (iw) iw.style.display = (sel === 'icon') ? 'flex' : 'none';
+            const gw = document.getElementById('favImgWrap'); if (gw) gw.style.display = (sel === 'image') ? 'flex' : 'none';
+            updateFavPreview();
+            if (noSave !== true && typeof autoSaveToServer === 'function') autoSaveToServer();
+        }
+        function onFavInput() {
+            const ii = document.getElementById('favIconInput'); faviconIcon = ii ? (ii.value || '').trim() : '';
+            const ci = document.getElementById('favColorInput'); faviconColor = ci ? ci.value : '#22d3ee';
+            updateFavPreview();
+            if (typeof autoSaveToServer === 'function') autoSaveToServer();
+        }
+        function onFavFile(ev) {
+            const f = ev.target.files && ev.target.files[0]; if (!f) return;
+            const rd = new FileReader();
+            rd.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const c = document.createElement('canvas'); c.width = c.height = 64;
+                    const x = c.getContext('2d'); x.clearRect(0, 0, 64, 64);
+                    const s = Math.min(64 / img.width, 64 / img.height), w = img.width * s, h = img.height * s;
+                    x.drawImage(img, (64 - w) / 2, (64 - h) / 2, w, h);
+                    faviconImage = c.toDataURL('image/png');
+                    updateFavPreview();
+                    if (typeof autoSaveToServer === 'function') autoSaveToServer();
+                };
+                img.src = rd.result;
+            };
+            rd.readAsDataURL(f);
+        }
+        function _favIconDataURL(cls, color) {
+            const el = document.createElement('i'); el.className = cls;
+            el.style.cssText = 'position:absolute;left:-9999px;font-size:52px;';
+            document.body.appendChild(el);
+            const cs = getComputedStyle(el, '::before');
+            const ch = (cs.content || '').replace(/^["']|["']$/g, '');
+            const fam = cs.fontFamily || '"Font Awesome 6 Free"', wght = cs.fontWeight || '900';
+            el.remove();
+            if (!ch || ch === 'none' || ch === 'normal') return '';
+            const c = document.createElement('canvas'); c.width = c.height = 64;
+            const x = c.getContext('2d'); x.clearRect(0, 0, 64, 64);
+            x.font = wght + ' 52px ' + fam; x.textAlign = 'center'; x.textBaseline = 'middle';
+            x.fillStyle = color || '#22d3ee'; x.fillText(ch, 32, 34);
+            return c.toDataURL('image/png');
+        }
+        function updateFavPreview() {
+            const p = document.getElementById('favPreview'); if (!p) return;
+            if (faviconMode === 'image' && faviconImage) { p.src = faviconImage; return; }
+            if (faviconMode === 'icon' && faviconIcon) {
+                const render = () => { const d = _favIconDataURL(faviconIcon, faviconColor); if (d) p.src = d; };
+                render();
+                if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+                return;
+            }
+            p.src = 'favicon.svg';
+        }
+
+        // ── color helpers (รองรับ alpha) ──
+        function _pc(v) {   // parse a color string → {hex:'#rrggbb', a:0-100}
+            if (!v) return { hex: '', a: 100 };
+            v = String(v).trim();
+            let m = v.match(/^#([0-9a-fA-F]{6})$/); if (m) return { hex: v.toLowerCase(), a: 100 };
+            m = v.match(/^#([0-9a-fA-F]{3})$/); if (m) { const h = m[1]; return { hex: ('#' + h[0] + h[0] + h[1] + h[1] + h[2] + h[2]).toLowerCase(), a: 100 }; }
+            m = v.match(/rgba?\(([^)]+)\)/i);
+            if (m) {
+                const p = m[1].split(',').map(x => x.trim());
+                const r = Math.round(+p[0] || 0), g = Math.round(+p[1] || 0), b = Math.round(+p[2] || 0);
+                const a = (p[3] !== undefined) ? Math.round(parseFloat(p[3]) * 100) : 100;
+                const hx = '#' + [r, g, b].map(x => Math.max(0, Math.min(255, x)).toString(16).padStart(2, '0')).join('');
+                return { hex: hx, a: a };
+            }
+            return { hex: '', a: 100 };
+        }
+        function _rgba(hex, a) {
+            hex = hex || '#000000';
+            const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+            return 'rgba(' + r + ',' + g + ',' + b + ',' + (Math.max(0, Math.min(100, a)) / 100) + ')';
+        }
+        // สร้าง swatch (คลิกแล้วเปิด popover เลือกสี+ความโปร่งใสในที่เดียว)
+        function _swatch(token, rgba, round) {
+            const shown = rgba || 'transparent';
+            return `<span class="cswatch${round ? ' round' : ''}" data-token="${token}" onclick="openColorPop(event,'${token}')" title="คลิกเพื่อเลือกสี + ความโปร่งใส"><span class="cswatch-in" style="background:${shown};"></span></span>`;
+        }
+        // token: box:<index>:bgColor | box:<index>:textColor | header:hbg | header:htx
+        function _getColor(token) {
+            const t = token.split(':');
+            if (t[0] === 'box') return editableMenus[+t[1]][t[2]] || '';
+            if (t[0] === 'header') return (t[1] === 'hbg') ? _curHeaderBg() : _curHeaderText();
+            return '';
+        }
+        function _setColor(token, rgba) {
+            const t = token.split(':');
+            if (t[0] === 'box') editableMenus[+t[1]][t[2]] = rgba;
+            else if (t[0] === 'header') { if (t[1] === 'hbg') _curHeaderBg(rgba); else _curHeaderText(rgba); }
+            const el = document.querySelector('.cswatch[data-token="' + token + '"] .cswatch-in');
+            if (el) el.style.background = rgba || 'transparent';
+            updateCodeDisplay();
+            autoSaveToServer();
+        }
+        let cpToken = null;
+        function openColorPop(ev, token) {
+            ev.stopPropagation();
+            cpToken = token;
+            const p = _pc(_getColor(token));
+            document.getElementById('cpHex').value = p.hex || '#000000';
+            document.getElementById('cpA').value = p.a;
+            document.getElementById('cpAv').innerText = p.a + '%';
+            const pop = document.getElementById('colorPop');
+            const r = ev.currentTarget.getBoundingClientRect();
+            pop.style.display = 'block';
+            pop.style.top = (window.scrollY + r.bottom + 6) + 'px';
+            pop.style.left = (window.scrollX + Math.min(r.left, window.innerWidth - 230)) + 'px';
+        }
+        function cpChange() {
+            if (!cpToken) return;
+            const hex = document.getElementById('cpHex').value;
+            const a = parseInt(document.getElementById('cpA').value, 10);
+            document.getElementById('cpAv').innerText = a + '%';
+            _setColor(cpToken, _rgba(hex, a));
+        }
+        function cpClear() { if (cpToken) { _setColor(cpToken, ''); } document.getElementById('colorPop').style.display = 'none'; }
+        document.addEventListener('click', function (e) {
+            const pop = document.getElementById('colorPop');
+            if (pop && pop.style.display === 'block' && !pop.contains(e.target) && !(e.target.closest && e.target.closest('.cswatch'))) pop.style.display = 'none';
+        });
+
+        function setZone(z) {
+            currentZone = z;
+            document.getElementById('zonePublicBtn').className = 'btn' + (z === 'public' ? ' btn-info' : '');
+            document.getElementById('zonePrivateBtn').className = 'btn' + (z === 'private' ? ' btn-warning' : '');
+            renderHeaderControls();   // header swatches ตามโซนที่เลือก
+            applyBrandZoneUI();
+            renderTable();
+        }
+
+        function toggleZone(index) {   // ย้ายกล่องข้ามโซน public <-> private
+            editableMenus[index].zone = (editableMenus[index].zone === 'public') ? 'private' : 'public';
+            renderTable();
+            autoSaveToServer();
+        }
+
+        function toggleAlign(index) {   // สลับตำแหน่งในแถบ header: ชิดซ้าย <-> ชิดขวา
+            editableMenus[index].align = (editableMenus[index].align === 'right') ? 'left' : 'right';
+            renderTable();
+            autoSaveToServer();
+        }
+
+        function toggleHide(col) {
+            hiddenCols[col] = !hiddenCols[col];
+            renderTable();
+        }
+
+        function init() {
+            if (typeof appConfig !== 'undefined' && appConfig.menus) {
+                editableMenus = JSON.parse(JSON.stringify(appConfig.menus));
+            }
+            // Add default values for new fields
+            editableMenus.forEach((m, i) => {
+                if(!m.type) m.type = 'x-frame';
+                if(m.showIcon === undefined) m.showIcon = false;
+                if(!m.bgColor) m.bgColor = ''; // Empty defaults to theme fallback
+                if(!m.textColor) m.textColor = '';
+                if(!m.zone) m.zone = (i === 0 ? 'public' : 'private');   // box แรก = public (Guest View) · ที่เหลือ default private
+                if(!m.align) m.align = 'left';   // ตำแหน่งเริ่มต้นในแถบ header: left | right
+                if(m.blend === undefined) m.blend = false;   // กลมกลืนกับ header bar อัตโนมัติ
+            });
+            const ac = (typeof appConfig !== 'undefined') ? appConfig : {};
+            headerBgPub = ac.headerBgPublic || ac.headerBg || '';
+            headerTextPub = ac.headerTextPublic || ac.headerText || '';
+            headerBgPriv = ac.headerBgPrivate || ac.headerBg || '';
+            headerTextPriv = ac.headerTextPrivate || ac.headerText || '';
+            brandPrivate = ac.brandPrivate || '';
+            brandPublic1 = ac.brandPublic1 || '';
+            brandPublic2 = ac.brandPublic2 || '';
+            faviconMode = ac.faviconMode || '';
+            faviconIcon = ac.faviconIcon || '';
+            faviconColor = ac.faviconColor || '#22d3ee';
+            faviconImage = ac.faviconImage || '';
+            initFaviconUI();
+            setZone('public');   // เรียก renderHeaderControls ให้ในตัว
+            if (editableMenus.length === 0) {
+                // Ensure at least index 0 exists for safety
+                editableMenus.push({ id: 'public_home', name: 'Public Guest', showIcon: false, url: '/' });
+            }
+            renderTable();
+        }
+
+        function renderTable() {
+            // Update Header eye icons
+            document.getElementById('icon-hide-id').className = hiddenCols.id ? 'fas fa-eye-slash' : 'fas fa-eye';
+            document.getElementById('icon-hide-icon').className = hiddenCols.icon ? 'fas fa-eye-slash' : 'fas fa-eye';
+            document.getElementById('icon-hide-url').className = hiddenCols.url ? 'fas fa-eye-slash' : 'fas fa-eye';
+
+            // Guest first-box section แสดงเฉพาะโซน public
+            document.getElementById('guestZoneBox').style.display = (currentZone === 'public') ? '' : 'none';
+
+            const tbGuest = document.getElementById('guestConfigTableBody');
+            tbGuest.innerHTML = '';
+
+            if(currentZone === 'public' && editableMenus.length > 0) {
+                const menu0 = editableMenus[0];
+                const trGuest = document.createElement('tr');
+                trGuest.innerHTML = `
+                    <td><input type="text" value="${menu0.id || ''}" onchange="updateField(0, 'id', this.value)"></td>
+                    <td><input type="text" value="${menu0.name || ''}" onchange="updateField(0, 'name', this.value)"></td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <i class="${menu0.icon || 'fas fa-box'}" style="width: 20px; text-align:center; color:#00d2ff;"></i>
+                            <input type="text" value="${menu0.icon || ''}" onchange="updateField(0, 'icon', this.value)" style="flex:1;" placeholder="fas fa-box">
+                            <label style="display:flex; align-items:center; cursor:pointer; margin-left:5px;" title="Show Icon">
+                                <input type="checkbox" ${menu0.showIcon ? 'checked' : ''} onchange="updateField(0, 'showIcon', this.checked)">
+                            </label>
+                        </div>
+                    </td>
+                    <td><input type="text" value="${menu0.url || ''}" onchange="updateField(0, 'url', this.value)"></td>
+                `;
+                tbGuest.appendChild(trGuest);
+            }
+
+            const tbLeft = document.getElementById('configTableBodyLeft');
+            const tbRight = document.getElementById('configTableBodyRight');
+            tbLeft.innerHTML = ''; tbRight.innerHTML = '';
+
+            for(let index = 1; index < editableMenus.length; index++) {
+                const menu = editableMenus[index];
+                if ((menu.zone || 'private') !== currentZone) continue;   // แสดงเฉพาะกล่องในโซนที่เลือก
+                const tb = (menu.align === 'right') ? tbRight : tbLeft;   // แยกตารางตามชิดซ้าย/ขวา
+                const trMain = document.createElement('tr');
+
+                let idCell = hiddenCols.id
+                    ? `<td style="width:40px; text-align:center; color:#888; cursor:pointer;" onclick="toggleHide('id')">***</td>`
+                    : `<td><input type="text" value="${menu.id || ''}" onchange="updateField(${index}, 'id', this.value)"></td>`;
+
+                let urlCell = hiddenCols.url
+                    ? `<td style="width:40px; text-align:center; color:#888; cursor:pointer;" onclick="toggleHide('url')">***</td>`
+                    : `<td><input type="text" value="${menu.url || ''}" onchange="updateField(${index}, 'url', this.value)"></td>`;
+
+                let iconCell = hiddenCols.icon
+                    ? `<td>
+                        <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
+                            <i class="${menu.icon || 'fas fa-cog'}" style="width: 20px; text-align:center; font-size: 1.1em;"></i>
+                            <div style="color:#888; cursor:pointer;" onclick="toggleHide('icon')">***</div>
+                            <label style="display:flex; align-items:center; cursor:pointer;" title="Show Icon">
+                                <input type="checkbox" ${menu.showIcon ? 'checked' : ''} onchange="updateField(${index}, 'showIcon', this.checked)">
+                            </label>
+                        </div>
+                       </td>`
+                    : `<td>
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <i class="${menu.icon || 'fas fa-cog'}" style="width: 20px; text-align:center;"></i>
+                            <input type="text" value="${menu.icon || ''}" onchange="updateField(${index}, 'icon', this.value)" style="flex:1;">
+                            <label style="display:flex; align-items:center; cursor:pointer; margin-left:5px;" title="Show Icon">
+                                <input type="checkbox" ${menu.showIcon ? 'checked' : ''} onchange="updateField(${index}, 'showIcon', this.checked)">
+                            </label>
+                        </div>
+                       </td>`;
+
+                trMain.innerHTML = `
+                    <td style="text-align: center; vertical-align: middle;" rowspan="2">
+                        <button class="btn" style="padding: 2px 6px; border: 1px solid #444;" onclick="moveRow(${index}, -1)" ${index === 1 ? 'disabled' : ''}>▲</button>
+                        <button class="btn" style="padding: 2px 6px; border: 1px solid #444; margin-top: 4px;" onclick="moveRow(${index}, 1)" ${index === editableMenus.length - 1 ? 'disabled' : ''}>▼</button>
+                    </td>
+                    ${idCell}
+                    <td><input type="text" value="${menu.name || ''}" onchange="updateField(${index}, 'name', this.value)"></td>
+                    ${iconCell}
+                    ${urlCell}
+                    <td>
+                        <select onchange="updateField(${index}, 'type', this.value)">
+                            <option value="x-frame" ${menu.type === 'x-frame' ? 'selected' : ''}>x-frame</option>
+                            <option value="pop-up" ${menu.type === 'pop-up' ? 'selected' : ''}>pop-up (new)</option>
+                            <option value="pop-up-self" ${menu.type === 'pop-up-self' ? 'selected' : ''}>pop-up (self)</option>
+                        </select>
+                    </td>
+                    <td>
+                        ${(() => { const dim = menu.blend ? 'opacity:.35; pointer-events:none;' : ''; return `
+                        <div style="display:flex; flex-direction:column; gap:5px; font-size:0.72em; min-width:150px;">
+                            <label style="display:flex; align-items:center; gap:6px; ${dim}">BG ${_swatch('box:' + index + ':bgColor', menu.bgColor)}</label>
+                            <label style="display:flex; align-items:center; gap:6px; ${dim}">Text ${_swatch('box:' + index + ':textColor', menu.textColor, true)}</label>
+                            <label style="display:flex; align-items:center; gap:5px; cursor:pointer; color:#7dd3fc;">
+                                <input type="checkbox" ${menu.blend ? 'checked' : ''} onchange="updateField(${index}, 'blend', this.checked)"> Blend w/ header (auto)
+                            </label>
+                        </div>`; })()}
+                    </td>
+                    <td style="text-align: center;"><input type="checkbox" ${menu.active ? 'checked' : ''} onchange="updateField(${index}, 'active', this.checked)"></td>
+                    <td style="text-align: center;">
+                        <input type="checkbox" ${menu.adminOnly ? 'checked' : ''} onchange="updateField(${index}, 'adminOnly', this.checked)">
+                        <div style="margin-top:6px;"><button class="btn" style="padding:2px 6px; font-size:0.72em;" onclick="toggleZone(${index})" title="ย้ายโซน">${currentZone === 'public' ? '→ Private' : '→ Public'}</button></div>
+                        <div style="margin-top:4px;"><button class="btn" style="padding:2px 6px; font-size:0.72em;" onclick="toggleAlign(${index})" title="ย้ายไปตารางอีกฝั่ง (ชิดซ้าย/ชิดขวา)">${(menu.align === 'right') ? '⬅ to Left' : '➡ to Right'}</button></div>
+                    </td>
+                    <td style="text-align: center;" rowspan="2">
+                        <button class="btn btn-danger" onclick="deleteRow(${index})"><i class="fas fa-trash"></i></button>
+                    </td>
+                `;
+
+                const trDesc = document.createElement('tr');
+                trDesc.className = 'desc-row';
+                trDesc.innerHTML = `
+                    <td colspan="8">
+                        <input type="text" placeholder="Description (บันทึกเตือนความจำว่าปุ่มนี้ทำ/ลิงก์ไปไหน เหมาะสำหรับอะไร)" value="${menu.description || ''}" onchange="updateField(${index}, 'description', this.value)">
+                    </td>
+                `;
+
+                tb.appendChild(trMain);
+                tb.appendChild(trDesc);
+            }
+            updateCodeDisplay();
+        }
+
+        function resetColors(index) {
+            editableMenus[index].bgColor = "";
+            editableMenus[index].textColor = "";
+            renderTable();
+            updateCodeDisplay();
+            autoSaveToServer();
+        }
+
+        function updateField(index, field, value) {
+            editableMenus[index][field] = value;
+            if (field === 'icon' || field === 'bgColor' || field === 'textColor' || field === 'blend') {
+                renderTable();
+            } else {
+                updateCodeDisplay();
+            }
+            autoSaveToServer();
+        }
+
+        // header bar swatches (ตามโซนที่เลือกอยู่ public/private)
+        function renderHeaderControls() {
+            document.getElementById('hdrZoneLabel').innerText = '(' + (currentZone === 'public' ? 'Public' : 'Private') + ')';
+            document.getElementById('hbgSwatch').innerHTML = _swatch('header:hbg', _curHeaderBg());
+            document.getElementById('htxSwatch').innerHTML = _swatch('header:htx', _curHeaderText(), true);
+        }
+        // คืนค่าสี header ของโซนที่เลือกอยู่ → ค่าเริ่มต้น (ธีมเดิม)
+        function resetHeaderZone() {
+            _curHeaderBg(''); _curHeaderText('');
+            document.getElementById('colorPop').style.display = 'none';
+            renderHeaderControls();
+            updateCodeDisplay();
+            autoSaveToServer();
+        }
+
+        function moveRow(index, dir) {
+            const target = index + dir;
+            if(target <= 0 || target >= editableMenus.length) return; // Protect index 0
+            const temp = editableMenus[index];
+            editableMenus[index] = editableMenus[target];
+            editableMenus[target] = temp;
+            renderTable();
+            autoSaveToServer();
+        }
+
+        function addMenuRow() {
+            editableMenus.push({
+                id: 'new_btn_' + Date.now().toString().slice(-4),
+                name: 'New Button',
+                icon: 'fas fa-link',
+                url: '/',
+                active: true,
+                adminOnly: false,
+                type: 'x-frame',
+                showIcon: false,
+                bgColor: '',
+                textColor: '',
+                description: '',
+                zone: currentZone,   // เพิ่มกล่องใหม่ในโซนที่กำลังดูอยู่
+                align: 'left'
+            });
+            renderTable();
+            window.scrollTo(0, document.body.scrollHeight);
+            autoSaveToServer();
+        }
+
+        function deleteRow(index) {
+            if(index === 0) return; // Protect index 0
+            if(confirm('Are you sure you want to delete this button?')) {
+                editableMenus.splice(index, 1);
+                renderTable();
+                autoSaveToServer();
+            }
+        }
+
+        function generateJSCode() {
+            let lines = [
+                "const appConfig = {",
+                "    title: \"\","
+            ];
+            if (headerBgPub) lines.push(`    headerBgPublic: "${headerBgPub}",`);
+            if (headerTextPub) lines.push(`    headerTextPublic: "${headerTextPub}",`);
+            if (headerBgPriv) lines.push(`    headerBgPrivate: "${headerBgPriv}",`);
+            if (headerTextPriv) lines.push(`    headerTextPrivate: "${headerTextPriv}",`);
+            if (brandPrivate) lines.push(`    brandPrivate: ${JSON.stringify(brandPrivate)},`);
+            if (brandPublic1) lines.push(`    brandPublic1: ${JSON.stringify(brandPublic1)},`);
+            if (brandPublic2) lines.push(`    brandPublic2: ${JSON.stringify(brandPublic2)},`);
+            if (faviconMode) lines.push(`    faviconMode: ${JSON.stringify(faviconMode)},`);
+            if (faviconIcon) lines.push(`    faviconIcon: ${JSON.stringify(faviconIcon)},`);
+            if (faviconColor) lines.push(`    faviconColor: ${JSON.stringify(faviconColor)},`);
+            if (faviconImage) lines.push(`    faviconImage: ${JSON.stringify(faviconImage)},`);
+            lines.push("    menus: [");
+
+            editableMenus.forEach((m, idx) => {
+                let adminStr = m.adminOnly ? 'true' : 'false';
+                let activeStr = m.active ? 'true' : 'false';
+                let showIconStr = m.showIcon ? 'true' : 'false';
+                let typeStr = m.type || 'x-frame';
+
+                let props = [
+                    `id: "${m.id}"`, `name: "${m.name}"`, `icon: "${m.icon}"`, `url: "${m.url}"`,
+                    `active: ${activeStr}`, `adminOnly: ${adminStr}`, `type: "${typeStr}"`, `showIcon: ${showIconStr}`,
+                    `zone: "${m.zone || (idx === 0 ? 'public' : 'private')}"`, `align: "${m.align || 'left'}"`
+                ];
+
+                if (m.description) props.push(`description: "${m.description}"`);
+                if (m.blend) props.push(`blend: true`);
+                if (m.bgColor) props.push(`bgColor: "${m.bgColor}"`);
+                if (m.textColor) props.push(`textColor: "${m.textColor}"`);
+
+                let line = `        { ${props.join(', ')} }`;
+                if(idx < editableMenus.length - 1) line += ",";
+                lines.push(line);
+            });
+
+            lines.push("    ]");
+            lines.push("};");
+            return lines.join("\n");
+        }
+
+        function updateCodeDisplay() {
+            const codeBox = document.getElementById('codeDisplay');
+            if (codeBox.style.display === 'block') {
+                codeBox.innerText = generateJSCode();
+            }
+        }
+
+        function copyConfigCode() {
+            const code = generateJSCode();
+            const codeBox = document.getElementById('codeDisplay');
+            codeBox.style.display = 'block';
+            codeBox.innerText = code;
+
+            navigator.clipboard.writeText(code).then(() => {
+                alert("Copied to clipboard! You can paste this directly into menu_config.js");
+            });
+        }
+
+        function downloadConfig() {
+            const code = generateJSCode();
+            const blob = new Blob([code], { type: 'application/javascript;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", "menu_config.js");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        let autoSaveTimer = null;
+        function autoSaveToServer() {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(async () => {
+                const code = generateJSCode();
+                try {
+                    const response = await fetch('/api/save-menu-config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: code })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log("Auto-save successful.");
+                    } else {
+                        console.error("Auto-save failed:", result.message);
+                    }
+                } catch (err) {
+                    console.error("Auto-save error:", err);
+                }
+            }, 1000); // 1s debounce delays save until user halts typing
+        }
+
+        async function saveToServer() {
+            const code = generateJSCode();
+            try {
+                const response = await fetch('/api/save-menu-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert("Saved to Server Successfully! (Changes applied real-time)");
+                } else {
+                    alert("Failed to save: " + result.message);
+                }
+            } catch (err) {
+                console.error("Save to server error:", err);
+                alert("Network error trying to save. Ensure auth-service is running.");
+            }
+        }
+
+        async function openNginxModal() {
+            document.getElementById('nginxStatus').innerText = "Loading...";
+            document.getElementById('nginxStatus').style.color = "#aaa";
+            document.getElementById('nginxModal').style.display = 'flex';
+            try {
+                const response = await fetch('/api/get-nginx-config');
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('nginxCode').value = result.content;
+                    document.getElementById('nginxStatus').innerText = "Loaded successfully";
+                    document.getElementById('nginxStatus').style.color = "#00d2ff";
+                } else {
+                    document.getElementById('nginxStatus').innerText = "Load failed: " + result.message;
+                    document.getElementById('nginxStatus').style.color = "#e74c3c";
+                    document.getElementById('nginxCode').value = "// Failed to load: " + result.message;
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('nginxStatus').innerText = "Network error";
+                document.getElementById('nginxStatus').style.color = "#e74c3c";
+            }
+        }
+
+        function closeNginxModal() {
+            document.getElementById('nginxModal').style.display = 'none';
+        }
+
+        async function saveNginxConfig() {
+            const code = document.getElementById('nginxCode').value;
+            const statusEl = document.getElementById('nginxStatus');
+            statusEl.innerText = "Saving...";
+            statusEl.style.color = "#aaa";
+            try {
+                const response = await fetch('/api/save-nginx-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    statusEl.innerText = "Saved successfully!";
+                    statusEl.style.color = "#2ecc71";
+                    setTimeout(() => closeNginxModal(), 2000);
+                } else {
+                    statusEl.innerText = "Save failed: " + result.message;
+                    statusEl.style.color = "#e74c3c";
+                }
+            } catch (err) {
+                console.error(err);
+                statusEl.innerText = "Network error on save";
+                statusEl.style.color = "#e74c3c";
+            }
+        }
+
+        window.onload = init;
+    </script>
+
+    <div id="colorPop">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <input type="color" id="cpHex" oninput="cpChange()" onchange="cpChange()">
+            <div style="flex:1;">
+                <div style="display:flex; justify-content:space-between; font-size:0.72em; color:#94a3b8; margin-bottom:4px;"><span>Opacity / ความโปร่งใส</span><span id="cpAv">100%</span></div>
+                <input type="range" id="cpA" min="0" max="100" value="100" oninput="cpChange()">
+            </div>
+        </div>
+        <div style="text-align:right; margin-top:10px;">
+            <button class="btn btn-warning" style="padding:3px 10px; font-size:0.75em;" onclick="cpClear()">Clear</button>
+        </div>
+    </div>
+</body>
+</html>

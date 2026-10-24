@@ -1,0 +1,19 @@
+name: Source checks
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: wcc/auth/package-lock.json
+      - run: npm ci --ignore-scripts
+        working-directory: wcc/auth
+      - run: npm test
+        working-directory: wcc/auth
+      - run: node --check wcc/auth/server.js
+      - run: python3 -m py_compile scripts/setup.py scripts/smoke.py
+      - run: python3 scripts/setup.py && docker compose config --quiet

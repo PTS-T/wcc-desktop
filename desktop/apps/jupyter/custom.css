@@ -1,0 +1,10 @@
+/* WCC Desktop — JupyterLab Dark tuned to Agent Chat's dark palette */
+:root {
+  --jp-layout-color0: #0a0a0c; --jp-layout-color1: #141417; --jp-layout-color2: #1b1b1f; --jp-layout-color3: #2a2a30;
+  --jp-border-color0: #2a2a30; --jp-border-color1: #2a2a30; --jp-border-color2: #2a2a30;
+  --jp-ui-font-color0: #f2f2f4; --jp-ui-font-color1: #e4e4e8; --jp-ui-font-color2: #c6c6cc; --jp-ui-font-color3: #8b8b93;
+  --jp-content-font-color0: #f2f2f4; --jp-content-font-color1: #e4e4e8;
+  --jp-cell-editor-background: #141417; --jp-cell-editor-border-color: #2a2a30;
+  --jp-brand-color0: #ea580c; --jp-brand-color1: #f97316; --jp-brand-color2: #fb923c; --jp-brand-color3: #fdba74;
+  --jp-accent-color0: #ea580c; --jp-accent-color1: #f97316;
+}

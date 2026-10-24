@@ -1,0 +1,17 @@
+/* WCC Desktop — FileBrowser in Agent Chat's dark palette (on top of FileBrowser's own dark theme) */
+:root, .dark-mode, html.dark, body {
+  --background: #0a0a0c; --surfacePrimary: #141417; --surfaceSecondary: #1b1b1f; --divider: #2a2a30; --borderPrimary: #2a2a30;
+  --borderSecondary: #2a2a30; --textPrimary: #f2f2f4; --textSecondary: #c6c6cc; --hover: rgba(249,115,22,.10);
+  --action: #c6c6cc; --icon: #c6c6cc; --blue: #f97316; --dark-blue: #ea580c; --iconPrimary: #f97316;
+}
+body, #app, main, #listing, header, nav { background: #0a0a0c !important; color: #f2f2f4; }
+header { border-bottom: 1px solid #2a2a30 !important; box-shadow: none !important; }
+#listing.list .item, #listing .item { background: #141417 !important; border-color: #2a2a30 !important; color: #f2f2f4 !important; }
+#listing .item:hover, nav .action:hover { background: rgba(249,115,22,.10) !important; }
+#listing .item[aria-selected=true] { background: rgba(249,115,22,.22) !important; }
+#listing .item i, nav .action i { color: #f97316 !important; }
+#search #input, .card, .prompt, .shell, #editor-container, .floating { background: #141417 !important; color: #f2f2f4 !important; border-color: #2a2a30 !important; }
+a, .breadcrumbs a, .breadcrumbs span { color: #c6c6cc !important; }
+.button, .button--flat { color: #f97316; }
+.button:not(.button--flat) { background: #f97316 !important; color: #0a0a0c !important; }
+.credits, .credits a { color: #8b8b93 !important; }

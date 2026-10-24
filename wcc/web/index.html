@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WCC — Multi-Agent Platform</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* --- 🌞 Light/Grey Public Theme --- */
+        body {
+            margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif;
+            overflow: hidden; background: #0b0b0f; color: #e8e8ee;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        .header {   /* slim bar: little padding top/bottom (was min-height 60px + 8px padding) */
+            min-height: 0;
+            height: auto;
+            background: #141419; /* dark header */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex; flex-wrap: wrap; align-items: center;
+            padding: 3px 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            z-index: 1000; position: relative; gap: 15px;
+        }
+
+        /* ส่วนซ้ายบน: WCC */
+        .brand-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            min-width: 80px;
+        }
+
+        .brand {
+            font-size: 1.2rem; font-weight: 800; color: #f0f0f3; letter-spacing: 1.5px;
+            white-space: nowrap; margin-right: 15px;
+        }
+
+        /* Menu Container */
+        .nav-menu {
+            display: flex; flex-wrap: wrap; gap: 8px; flex: 1;
+        }
+
+        .nav-item {
+            padding: 8px 15px;
+            background: #1c1c22;
+            border: 1px solid #2e2e36;
+            border-radius: 6px; color: #c4c4cc; cursor: pointer;
+            font-size: 0.9rem; font-weight: 500; transition: all 0.2s ease; white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+
+        .nav-item:hover {
+            background: #26262e; color: #ffffff; border-color: #3a3a44;
+            transform: translateY(-1px);
+        }
+
+        .nav-item.active {
+            background: #eccc68; color: #2f3542; font-weight: bold;
+            border-color: #eccc68;
+            box-shadow: 0 4px 10px rgba(236, 204, 104, 0.4);
+        }
+
+        /* blend buttons: inline styles keep bg/text fixed; kill hover/active shift so color never changes on click */
+        .nav-item.blend:hover, .nav-item.blend.active { box-shadow: none !important; font-weight: normal !important; transform: none !important; }
+
+        /* ปุ่ม Sign in / Sign up ด้านขวาบน */
+        .auth-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        .btn {
+            padding: 8px 18px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        /* Sign in / Sign up — equal size (same padding + min-width) */
+        .auth-controls .btn { padding: 8px 20px; min-width: 100px; text-align: center; border-radius: 6px; }
+        .btn-signin {
+            font-weight: 500;
+            background: #2980b9;
+            color: #fff;
+            border: 1px solid #2980b9;
+        }
+
+        .btn-signin:hover {
+            background: #2471a3;
+        }
+
+        .btn-signup {
+            background: linear-gradient(135deg, #2980b9, #3498db);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 10px rgba(41, 128, 185, 0.3);
+        }
+
+        .btn-signup:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(41, 128, 185, 0.4);
+        }
+
+        /* Main Viewport */
+        .main-container { flex: 1; position: relative; background: #0b0b0f; display: flex; flex-direction: column; }
+        iframe { flex: 1; width: 100%; height: 100%; border: none; display: block; }
+
+        /* Modal Overlay for Auth */
+        .modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            justify-content: center; align-items: center;
+        }
+
+        .login-card {
+            background: rgba(20, 20, 25, 0.85);
+            padding: 40px; border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            width: 320px; text-align: center; color: white;
+            position: relative;
+            animation: fadein 0.3s;
+        }
+
+        .close-modal {
+            position: absolute; top: 15px; right: 15px;
+            background: none; border: none; color: #aaa; font-size: 1.2rem; cursor: pointer;
+        }
+        .close-modal:hover { color: white; }
+
+        .logo { font-size: 3em; margin-bottom: 10px; text-shadow: 0 0 10px #00d2ff; }
+        .login-card h2 { margin: 0 0 5px 0; font-weight: 300; letter-spacing: 1px; color: white; }
+        .login-card p { color: #aaa; font-size: 0.8em; margin-bottom: 25px; }
+        .input-group { text-align: left; margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.8em; color: #ccc; margin-bottom: 5px; }
+        .input-group input {
+            width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.3); border: 1px solid #444;
+            border-radius: 5px; color: white; box-sizing: border-box; outline: none; transition: 0.3s;
+        }
+        .input-group input:focus { border-color: #00d2ff; box-shadow: 0 0 8px rgba(0, 210, 255, 0.3); }
+
+        .btn-auth {
+            width: 100%; padding: 12px; border: none; border-radius: 5px; font-size: 1em;
+            font-weight: bold; cursor: pointer; transition: 0.3s; text-transform: uppercase;
+            letter-spacing: 1px; margin-top: 10px; color: white; display: inline-block;
+        }
+        .btn-auth-primary { background: linear-gradient(45deg, #00d2ff, #3a7bd5); }
+        .btn-auth-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 210, 255, 0.4); }
+
+        .btn-auth-reg { background: linear-gradient(45deg, #11998e, #38ef7d); }
+        .btn-auth-reg:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4); }
+
+        .btn-auth-secondary { background: transparent; border: 1px solid #444; color: #aaa; margin-top: 15px; font-size: 0.8em; }
+        .btn-auth-secondary:hover { border-color: #fff; color: #fff; }
+
+        .error { color: #ff6b6b; font-size: 0.85em; margin-top: 15px; display: none; }
+        .success { color: #2ecc71; font-size: 0.85em; margin-top: 15px; display: none; }
+
+        .form-section { display: none; animation: fadein 0.5s; }
+        .form-section.active { display: block; }
+        @keyframes fadein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .brand-sub { font-size: 0.6rem; color: #8a8a93; letter-spacing: 1px; white-space: nowrap; text-transform: uppercase; }
+        #keyDrop { border: 1px dashed #444; border-radius: 8px; padding: 15px; margin-bottom: 5px; transition: 0.2s; }
+        #keyDrop.drag { border-color: #00d2ff; background: rgba(0, 210, 255, 0.05); }
+        .key-login-block { margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px; }
+        .key-or { color: #888; font-size: 0.72em; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="brand-container">
+            <div class="brand">WCC</div>
+            <div class="brand-sub">Multi-Agent Platform</div>
+        </div>
+        <div class="nav-menu" id="menuContainer"></div>
+        <div class="auth-controls">
+            <button onclick="openLogin()" class="btn btn-signin">Sign in</button>
+            <button onclick="goSignup()" id="authSignup" class="btn btn-signup">Sign up</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <iframe id="mainFrame" name="mainFrame" src=""></iframe>
+    </div>
+
+    <!-- Auth Modal Overlay -->
+    <div id="authModal" class="modal-overlay">
+        <div class="login-card">
+            <button class="close-modal" onclick="closeAuthModal()"><i class="fas fa-times"></i></button>
+
+            <div id="loginSection" class="form-section active">
+                <form id="loginForm">
+                    <div class="input-group">
+                        <label>ACCESS ID</label>
+                        <input type="text" id="loginUser" placeholder="Username">
+                    </div>
+                    <div class="input-group">
+                        <label>PASSCODE</label>
+                        <input type="password" id="loginPass" placeholder="Password">
+                    </div>
+
+                    <div class="key-login-block">
+                    <div id="insecureNotice" style="display:none; background:rgba(255,180,0,.12); border:1px solid rgba(255,180,0,.45); border-radius:10px; padding:12px; margin:10px 0; font-size:0.85em; color:#ffd479; text-align:left; line-height:1.5;">
+                        🔒 Key login requires <b>HTTPS</b> (browsers allow WebCrypto only in a secure context — this page was opened over HTTP)
+                        <a id="httpsLink" href="#" class="btn-auth btn-auth-primary" style="display:block; margin-top:10px; text-decoration:none; text-align:center;">🔒 Open via HTTPS and log in with Key</a>
+                        <div style="color:#c9a24a; margin-top:6px;">If you see a cert warning (self-signed), click Advanced → Proceed</div>
+                    </div>
+                    <div class="key-or">— or use a key file (if a key is selected, it is used first) —</div>
+                    <div id="keyDrop">
+                        <input type="file" id="keyFileInput" accept=".key" style="display:none">
+                        <button type="button" class="btn-auth btn-auth-secondary" style="margin-top:0;" onclick="document.getElementById('keyFileInput').click()">📁 Choose Key File</button>
+                        <div id="keyFileName" style="font-size:0.8em; color:#aaa; margin-top:8px;">or drag &amp; drop your key here</div>
+                    </div>
+                    <div id="keyError" class="error"></div>
+                    </div>
+
+                    <button type="submit" class="btn-auth btn-auth-primary">Connect</button>
+                    <div id="loginError" class="error"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>document.write('<script src="menu_config.js?v=' + Date.now() + '"><\/script>');</script>
+    <script>document.write('<script src="brand_favicon.js?v=' + Date.now() + '"><\/script>');</script>
+
+    <script>
+        // Check if already logged in, maybe redirect to home?
+        // Or let them stay on the public home, but show User panel if logged in?
+        // Since this is purely a guest page, if logged in, just redirect to home.html
+        if (sessionStorage.getItem('isLoggedIn') === 'true') {
+            // verify the server session (cookie) is still valid before skipping the
+            // login screen. A stale sessionStorage (cookie expired after a restart)
+            // otherwise traps the user: dock shows, every page bounces to login, and
+            // they never get back to this login box. If the session is dead, clear it
+            // and reload so the login form below is shown.
+            fetch('/api/whoami', { cache: 'no-store', credentials: 'same-origin' })
+                .then(function (r) {
+                    if (r.ok) { window.location.href = 'home.html'; }
+                    else { try { sessionStorage.clear(); } catch (e) {} window.location.reload(); }
+                })
+                .catch(function () { window.location.href = 'home.html'; });
+        } else {
+            // กันหน้า login พังทั้งหน้า: ถ้า menu_config.js โหลดไม่ได้/ว่าง → ใช้ค่า default ปลอดภัย
+            if (typeof appConfig === 'undefined' || !appConfig || !Array.isArray(appConfig.menus)) {
+                window.appConfig = { title: '', menus: [], brandPublic1: 'Frame Dog', brandPublic2: '', headerBgPublic: '', headerTextPublic: '' };
+                console.warn('menu_config.js missing/invalid — using safe defaults');
+            }
+            try { generateMenu(); } catch (e) { console.error('generateMenu failed:', e); }
+            try { applyAuthSettings(); } catch (e) { console.error('applyAuthSettings failed:', e); }
+            try { setupSecureContext(); } catch (e) { console.error('setupSecureContext failed:', e); }
+        }
+
+        async function applyAuthSettings() {
+            try {
+                const s = await (await fetch('/api/auth-settings')).json();
+                if (!s.success) return;
+                if (!s.allowPasswordLogin) {
+                    const f = document.getElementById('loginForm'); if (f) f.style.display = 'none';
+                    const or = document.querySelector('.key-or'); if (or) or.style.display = 'none';
+                    // อย่าปล่อยให้หน้าต่าง Sign in ดูว่างเปล่า: บอกสาเหตุ + ทางออกให้ชัดเจน
+                    console.warn('WCC: password login is disabled for this server (allowPasswordLogin=false)');
+                    const box = document.querySelector('#authModal .modal-content') || document.getElementById('authModal');
+                    if (box && !document.getElementById('pwDisabledNote')) {
+                        const n = document.createElement('div');
+                        n.id = 'pwDisabledNote';
+                        n.style.cssText = 'margin:16px 0;padding:14px 16px;border:1px solid #f0ad4e;border-radius:10px;background:rgba(240,173,78,.12);color:#eee;font-size:14px;line-height:1.7;text-align:left';
+                        n.innerHTML = '<b>เซิร์ฟเวอร์นี้ปิดการเข้าสู่ระบบด้วยรหัสผ่าน</b> (allowPasswordLogin = false)<br>'
+                                    + '· ใช้ <b>คีย์ / ไฟล์คีย์</b> ด้านล่างเพื่อเข้าใช้งาน<br>'
+                                    + '· หรือให้ผู้ดูแลเปิด “allowPasswordLogin” ในหน้า Settings แล้วรีเฟรช<br>'
+                                    + '· <a href="login.html" style="color:#8ab4f8">เปิดหน้า Login เต็มหน้า</a>';
+                        box.appendChild(n);
+                    }
+                }
+                if (!s.allowKeyLogin) { document.querySelectorAll('.key-login-block').forEach(el => el.style.display = 'none'); }
+            } catch (e) {}
+        }
+
+
+        function _toRgb(c){ if(!c) return null; c=String(c).trim(); let m=c.match(/^#([0-9a-fA-F]{3})$/); if(m){const h=m[1];return {r:parseInt(h[0]+h[0],16),g:parseInt(h[1]+h[1],16),b:parseInt(h[2]+h[2],16)};} m=c.match(/^#([0-9a-fA-F]{6})$/); if(m){const h=m[1];return {r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)};} m=c.match(/rgba?\(([^)]+)\)/i); if(m){const p=m[1].split(',').map(x=>parseFloat(x));return {r:p[0],g:p[1],b:p[2]};} return null; }
+        function _contrast(c){ const rgb=_toRgb(c); if(!rgb) return '#ffffff'; const L=(0.299*rgb.r+0.587*rgb.g+0.114*rgb.b)/255; return L>0.6 ? '#000000' : '#ffffff'; }
+
+        function generateMenu() {
+            const hdr = document.querySelector('.header');
+            // หน้า public = โซน public
+            const _HBG = appConfig.headerBgPublic || appConfig.headerBg || '';
+            const _HTX = appConfig.headerTextPublic || appConfig.headerText || '';
+            if (_HBG && hdr) hdr.style.background = _HBG;
+            if (_HTX && hdr) { hdr.style.color = _HTX; const b=document.querySelector('.brand'); if(b) b.style.color = _HTX; }
+            // header สีอ่อน (เช่น Public = ขาว) → ทำเงา/เส้นขอบ/แสงเรืองให้ดูสะอาด ไม่หนักตา
+            if (_HBG && hdr && _contrast(_HBG) === '#000000') {
+                hdr.style.boxShadow = '0 1px 6px rgba(0,0,0,0.08)';
+                hdr.style.borderBottom = '1px solid rgba(0,0,0,0.08)';
+                const _bb = document.querySelector('.brand'); if (_bb) _bb.style.textShadow = 'none';
+            }
+            const blendFg = _contrast(_HBG || getComputedStyle(document.querySelector('.header')).backgroundColor);
+            const menuContainer = document.getElementById('menuContainer');
+            const leftBtns = [], rightBtns = [];   // แยกกลุ่มปุ่มชิดซ้าย/ชิดขวาในแถบ header
+
+            // 1. นำรายการแรกสุดจาก menu_config.js มาใช้เสมอ (โหลดหน้า public ลง iframe)
+            const firstMenu = appConfig.menus[0];
+            if (firstMenu) {
+                document.getElementById('mainFrame').src = firstMenu.url;
+            }
+            // ชื่อแบรนด์ซ้ายบน (Public): บรรทัด 1 (ใหญ่) = brandPublic1 (ดีฟอลต์ WCC) · บรรทัด 2 = brandPublic2 · แก้ได้ใน WCC Backend → Public
+            { const _b1 = document.querySelector('.brand'); if (_b1) _b1.innerText = (appConfig.brandPublic1 && appConfig.brandPublic1.trim()) ? appConfig.brandPublic1 : 'WCC'; }
+            { const _b2 = document.querySelector('.brand-sub'); if (_b2 && appConfig.brandPublic2 && appConfig.brandPublic2.trim()) _b2.textContent = appConfig.brandPublic2; }
+            // Sign up (ใน .auth-controls) ตามสถานะ active ของเมนู sign_up
+            { const _su = (appConfig.menus || []).find(x => x.id === 'sign_up'); const _sb = document.getElementById('authSignup'); if (_sb) _sb.style.display = (_su && _su.active !== false) ? '' : 'none'; }
+
+            // 2. สร้างปุ่มสำหรับรายการอื่นๆ (ข้ามรายการแรก/0)
+            appConfig.menus.forEach((menu, index) => {
+                if (index === 0) return; // ข้ามรายการแรก
+                if (menu.id === 'sign_up') return;   // Sign up ย้ายไปอยู่ที่ .auth-controls (คู่กับ Sign in · ขนาดเท่ากัน) แล้ว
+
+                let canSee = false;
+
+                // หน้า public: โชว์กล่องที่อยู่ "โซน public" ตรง ๆ (ไม่ใช้ user guest-public แล้ว)
+                if (!menu.adminOnly && (menu.zone === 'public')) {
+                    canSee = true;
+                }
+
+                if (menu.active === false) {
+                    canSee = false; // ถูกปิดใช้งาน
+                }
+
+                if (canSee) {
+                    const btn = document.createElement('div');
+                    btn.className = 'nav-item';
+
+                    if (menu.blend) {
+                        btn.classList.add('blend');
+                        btn.style.backgroundColor = 'transparent';
+                        btn.style.borderColor = 'transparent';
+                        btn.style.color = blendFg;
+                    } else {
+                        if (menu.bgColor) {
+                            btn.style.backgroundColor = menu.bgColor;
+                            btn.style.borderColor = menu.bgColor;
+                        }
+                        if (menu.textColor) {
+                            btn.style.color = menu.textColor;
+                        }
+                    }
+
+                    let iconHtml = '';
+                    if (menu.showIcon && menu.icon) {
+                        iconHtml = `<i class="${menu.icon}" style="margin-right: 5px;"></i>`;
+                    }
+                    btn.innerHTML = iconHtml + menu.name;
+
+                    btn.onclick = () => {
+                        const targetType = menu.type || 'x-frame';
+                        // {HOST} → current hostname, so links to sibling containers
+                        // (e.g. multi-agent-kung on another port) stay portable.
+                        const url = (menu.url || '').replace('{HOST}', window.location.hostname);
+                        if (targetType === 'pop-up') {
+                            window.open(url, '_blank');
+                        } else if (targetType === 'pop-up-self') {
+                            window.open(url, '_self');
+                        } else {
+                            loadPage(url, btn);
+                        }
+                    };
+
+                    ((menu.align === 'right') ? rightBtns : leftBtns).push(btn);
+                }
+            });
+
+            // วางปุ่มชิดซ้ายก่อน แล้วปุ่มชิดขวา (ตัวแรกของกลุ่มขวา margin-left:auto ดันไปขวาสุด)
+            leftBtns.forEach(b => menuContainer.appendChild(b));
+            if (rightBtns.length) rightBtns[0].style.marginLeft = 'auto';
+            rightBtns.forEach(b => menuContainer.appendChild(b));
+        }
+
+        function loadPage(url, el) {
+            document.getElementById('mainFrame').src = url;
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            if (el) el.classList.add('active');
+        }
+
+        // --- AUTH MODAL LOGIC ---
+        function goSignup() {   // Sign up → เปิดหน้า sform (sign_up.html) ใน iframe เดียวกับหน้า public
+            const m = (appConfig.menus || []).find(x => x.id === 'sign_up');
+            document.getElementById('mainFrame').src = (m && m.url) || 'sign_up.html';
+        }
+
+        function openAuthModal(mode) {
+            document.getElementById('authModal').style.display = 'flex';
+            toggleForm(mode);
+        }
+
+        // ปุ่ม Sign in → ลองเปิด modal ก่อน · ถ้าเปิดไม่ได้จริง ๆ (config/JS ผิดพลาด) → พาไปหน้า login.html
+        // กันเคส "กด Sign in แล้วเงียบ ไม่มีหน้าต่างขึ้น"
+        function openLogin() {
+            try {
+                openAuthModal('login');
+                const m = document.getElementById('authModal');
+                if (!m || getComputedStyle(m).display === 'none') throw new Error('auth modal did not open');
+            } catch (e) {
+                console.error('openLogin → falling back to login.html:', e);
+                window.location.href = 'login.html';
+            }
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').style.display = 'none';
+        }
+
+        // ปิด Modal เมื่อคลิกพื้นที่เบลอด้านนอก
+        (function(){ const _m = document.getElementById('authModal'); if (_m) _m.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAuthModal();
+            }
+        }); })();
+
+        function toggleForm(mode) {
+            document.querySelectorAll('.form-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(mode + 'Section').classList.add('active');
+            document.querySelectorAll('.error, .success').forEach(el => el.style.display = 'none');
+        }
+
+        // ---- Key-file login (ECDSA P-256 challenge-response via WebCrypto) ----
+        let loadedKeyText = null;
+        function b64ToBuf(b64) { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
+        function bufToB64(buf) { const u = new Uint8Array(buf); let bin = ''; for (let i = 0; i < u.length; i++) bin += String.fromCharCode(u[i]); return btoa(bin); }
+        // WebCrypto (key login) only works in a secure context (HTTPS or localhost).
+        // On plain HTTP show a one-click switch to the HTTPS URL of the same page.
+        function setupSecureContext() {
+            if (window.isSecureContext) return true;
+            const httpsUrl = 'https://' + location.hostname + (location.pathname || '/') + location.search;
+            const link = document.getElementById('httpsLink'); if (link) link.href = httpsUrl;
+            const notice = document.getElementById('insecureNotice'); if (notice) notice.style.display = 'block';
+            document.querySelectorAll('#keyDrop button, .key-login-block button[onclick*="loginWithKey"]').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; b.style.cursor = 'not-allowed'; });
+            return false;
+        }
+        (function initKeyUI() {
+            const inp = document.getElementById('keyFileInput');
+            const drop = document.getElementById('keyDrop');
+            function readFile(f) { if (!f) return; const r = new FileReader(); r.onload = e => { loadedKeyText = e.target.result; document.getElementById('keyFileName').innerText = '\u2705 ' + f.name; }; r.readAsText(f); }
+            if (inp) inp.addEventListener('change', e => readFile(e.target.files[0]));
+            if (drop) {
+                ['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+                ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+                drop.addEventListener('drop', e => readFile(e.dataTransfer.files[0]));
+            }
+        })();
+
+        async function loginWithKey() {
+            const errorMsg = document.getElementById('keyError'); errorMsg.style.display = 'none';
+            try {
+                if (!window.crypto || !window.crypto.subtle || !window.isSecureContext) { setupSecureContext(); throw new Error('Key login needs HTTPS — use the "Open via HTTPS" button above'); }
+                if (!loadedKeyText) throw new Error('Please choose your key file first.');
+                let obj; try { obj = JSON.parse(loadedKeyText); } catch (_) { throw new Error('Invalid key file format.'); }
+                if (!obj.username || !obj.privateKey) throw new Error('Key file is missing username or private key.');
+                const cRes = await fetch('/api/key-challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: obj.username }) });
+                const cData = await cRes.json();
+                if (!cData.success) throw new Error(cData.message || 'Could not get challenge.');
+                const key = await crypto.subtle.importKey('jwk', obj.privateKey, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+                const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, b64ToBuf(cData.challenge));
+                const res = await fetch('/api/login-key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: obj.username, signature: bufToB64(sig) }) });
+                const data = await res.json();
+                if (data.success) {
+                    sessionStorage.setItem('isLoggedIn', 'true');
+                    sessionStorage.setItem('currentUser', JSON.stringify(data.user));
+                    window.location.href = 'home.html';
+                } else { throw new Error(data.message || 'Key login failed'); }
+            } catch (err) { errorMsg.innerText = err.message; errorMsg.style.display = 'block'; }
+        }
+
+        (function(){ const _f = document.getElementById('loginForm'); if (!_f) return; _f.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const errorMsg = document.getElementById('loginError');
+            errorMsg.style.display = 'none';
+
+            // ถ้าเลือก key file ไว้ → ใช้ key login ก่อน (ตามที่ตั้งค่า: มี key ให้ใช้ key ก่อน)
+            if (loadedKeyText) { return loginWithKey(); }
+
+            const user = document.getElementById('loginUser').value;
+            const pass = document.getElementById('loginPass').value;
+            if (!user || !pass) { errorMsg.innerText = 'Enter Username/Password or choose a Key file'; errorMsg.style.display = 'block'; return; }
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    if (data.user.status === 'pending') {
+                        errorMsg.innerText = "Account is waiting for Admin approval.";
+                        errorMsg.style.display = 'block';
+                    } else {
+                        sessionStorage.setItem('isLoggedIn', 'true');
+                        sessionStorage.setItem('currentUser', JSON.stringify(data.user));
+                        window.location.href = 'home.html';
+                    }
+                } else {
+                    errorMsg.innerText = data.message || "Invalid credentials";
+                    errorMsg.style.display = 'block';
+                }
+            } catch (err) {
+                errorMsg.innerText = "Connection Error: Cannot reach server";
+                errorMsg.style.display = 'block';
+            }
+        }); })();
+
+        // (removed) register handler — this page is login-only now
+    </script>
+<script>if (location.pathname === "/login.html") window.addEventListener("DOMContentLoaded", function(){openLogin();});</script>
+</body>
+</html>

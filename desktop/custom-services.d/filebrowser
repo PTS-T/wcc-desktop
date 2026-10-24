@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bash
+# wcc-desktop: FileBrowser on 127.0.0.1:8085, root /config/Desktop (the desktop's ~/Desktop), as abc (configured by custom-cont-init.d/40-wcc-apps.sh)
+[ -x /usr/local/bin/filebrowser ] || exec sleep infinity
+PUB=$(cat /run/wcc-public-base 2>/dev/null || echo /mawcc/desktop/)
+exec s6-setuidgid abc env HOME=/config filebrowser -d /config/.filebrowser/filebrowser.db --noauth \
+  -r /config/Desktop -a 127.0.0.1 -p 8085 -b "${PUB}filebrowser"

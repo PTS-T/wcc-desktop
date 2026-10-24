@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WCC Desktop</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<!--
+  WCC Desktop shell (served by the desktop's own nginx at <WCC root>desktop/wcc/ — /mawcc/desktop/wcc/ behind the
+  WCC gateway). Everything on this page comes from the wcc-desktop container:
+    · WCC Dock  — a round "…" dot at the top right; shows Desktop · FileBrowser · Jupyter · System Config
+                  (Visibility from System Config → WCC Dock: Always Visible / Toggle to Show / Proximity + distance)
+    · WCC Menu  — top bar from menu_config.js; OFF unless System Config → WCC Menu → "Enable WCC Menu" is on
+  Settings are the System Config keys in localStorage (wcc_config_dockVisibility, wcc_prox_dock_threshold,
+  wcc_config_menuEnabled, wcc_config_menuVisibility, wcc_prox_menu_threshold) + the server default (/api/wcc-defaults).
+  Each page keeps its own iframe (hide/show), so switching away never reloads the desktop session.
+-->
+<style>
+  :root { --bg:#0a0a0c; --bg2:#141417; --panel:rgba(20,20,23,.94); --line:#2a2a30; --txt:#f2f2f4; --dim:#8b8b93; --acc:#f97316; }
+  [hidden] { display:none !important; }
+  html, body { margin:0; height:100%; background:var(--bg); overflow:hidden; font-family:'Segoe UI',system-ui,sans-serif; }
+  #frames { position:fixed; inset:0; }
+  #frames iframe { position:absolute; inset:0; width:100%; height:100%; border:0; display:none; background:var(--bg); }
+  #frames iframe.on { display:block; }
+
+  /* ── WCC Dock: dot top-right + vertical buttons ── */
+  #dockWrap { position:fixed; top:10px; right:10px; z-index:1002; display:flex; flex-direction:column; align-items:flex-end; gap:8px; pointer-events:none; }
+  #dockDot { pointer-events:auto; }        /* closed dock never blocks the desktop under it */
+  #dockHot { position:fixed; top:0; right:0; z-index:1001; }          /* proximity zone around the dot */
+  #dockDot { width:34px; height:34px; border-radius:50%; background:var(--panel); border:1px solid var(--line); color:var(--txt);
+             display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.6);
+             font-size:16px; letter-spacing:1px; user-select:none; transition:.15s; padding:0; }
+  #dockDot:hover, #dockWrap.show #dockDot { color:var(--acc); border-color:var(--acc); }
+  #dock { display:flex; flex-direction:column; gap:6px; padding:8px; background:var(--panel); border:1px solid var(--line);
+          border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.6); backdrop-filter:blur(10px);
+          opacity:0; transform:translateY(-6px); pointer-events:none; transition:opacity .18s, transform .18s; }
+  #dockWrap.show #dock { opacity:1; transform:none; pointer-events:auto; }
+  .dock-btn { background:transparent; border:1px solid transparent; color:var(--txt); border-radius:8px; padding:8px 14px;
+              font-size:13px; cursor:pointer; display:flex; align-items:center; gap:9px; white-space:nowrap; transition:.12s; text-align:left; }
+  .dock-btn i { width:16px; text-align:center; color:var(--dim); }
+  .dock-btn:hover { background:rgba(249,115,22,.10); }
+  .dock-btn.active { border-color:var(--acc); background:rgba(249,115,22,.16); }
+  .dock-btn.active i, .dock-btn:hover i { color:var(--acc); }
+
+  /* ── WCC Menu (optional, off by default) ── */
+  #menuTab { position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:1001; background:var(--panel); border:1px solid var(--line);
+             border-top:none; border-radius:0 0 10px 10px; color:var(--dim); font-size:11px; letter-spacing:1px; text-transform:uppercase;
+             padding:4px 20px; cursor:pointer; white-space:nowrap; user-select:none; }
+  #menuTab:hover { color:var(--acc); }
+  #menuHot { position:fixed; top:0; left:0; right:0; z-index:999; }
+  #menu { position:fixed; top:0; left:0; right:0; z-index:1000; display:flex; flex-wrap:wrap; align-items:center; gap:12px;
+          padding:8px 60px 8px 20px; background:var(--panel); border-bottom:1px solid var(--line); box-shadow:0 5px 20px rgba(0,0,0,.8);
+          transform:translateY(-100%); transition:transform .25s ease-in-out; box-sizing:border-box; }
+  #menu.show { transform:translateY(0); }
+  #menu .brand { color:var(--txt); font-weight:700; font-size:13px; margin-right:auto; letter-spacing:.5px; }
+  .nav-item { border:1px solid var(--line); border-radius:8px; padding:6px 14px; font-size:13px; cursor:pointer; color:var(--txt);
+              background:rgba(255,255,255,.04); display:flex; align-items:center; gap:7px; }
+  .nav-item:hover { filter:brightness(1.15); }
+  .nav-item.active { box-shadow:0 0 0 2px var(--acc); }
+</style>
+</head>
+<body>
+<div id="frames"></div>
+
+<div id="menuHot" hidden></div>
+<div id="menuTab" title="WCC Menu" hidden><i class="fas fa-bars"></i> WCC Menu</div>
+<div id="menu" role="navigation" aria-label="WCC Menu" hidden><span class="brand">WCC Desktop</span><span id="menuItems" style="display:flex;gap:10px;flex-wrap:wrap;"></span></div>
+
+<div id="dockHot"></div>
+<div id="dockWrap">
+  <button id="dockDot" title="WCC Dock" aria-label="WCC Dock" aria-expanded="false"><i class="fas fa-ellipsis-h"></i></button>
+  <div id="dock" role="toolbar" aria-label="WCC Dock">
+    <button class="dock-btn" id="dockDesktop" data-key="desktop"><i class="fas fa-desktop"></i> Desktop</button>
+    <button class="dock-btn" id="dockFileBrowser" data-key="filebrowser"><i class="fas fa-folder-open"></i> FileBrowser</button>
+    <button class="dock-btn" id="dockJupyter" data-key="jupyter"><i class="fas fa-code"></i> Jupyter</button>
+    <button class="dock-btn" id="dockConfig" data-key="config"><i class="fas fa-tools"></i> System Config</button>
+  </div>
+</div>
+
+<script src="menu_config.js"></script>
+<script>
+(function () {
+  // WCC root = everything before "desktop/wcc/" (/mawcc/ behind the gateway, / on the multi-agent box)
+  var ROOT = location.pathname.replace(/desktop\/wcc\/.*$/, '') || '/';
+  var frames = {}, cur = '';
+  var MENUS = (typeof appConfig !== 'undefined' && appConfig && appConfig.menus) || [];   // menu_config.js declares a top-level const (not on window)
+  function ss(k, v) { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) { return null; } }
+  function ls(k, d) { try { var v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }
+  function $(id) { return document.getElementById(id); }
+
+  // Dock: all served by this desktop container (FileBrowser / Jupyter start in the desktop's ~/Desktop) + WCC System Config
+  function dockUrl(key) {
+    if (key === 'desktop') return ROOT + 'desktop/';
+    if (key === 'filebrowser') return ROOT + 'desktop/filebrowser/files/';
+    if (key === 'jupyter') return ROOT + 'desktop/jupyter/lab';
+    if (key === 'config') return ROOT + 'config.html';
+    return '';
+  }
+  function menuUrl(m) { return /^(https?:)?\//.test(m.url) ? m.url : ROOT + m.url; }   // relative = page of the WCC root
+  function show(key, url) {
+    var f = frames[key];
+    if (!f) {
+      f = document.createElement('iframe'); f.title = key; f.dataset.key = key;
+      if (key === 'desktop') f.allow = 'clipboard-read; clipboard-write; fullscreen; autoplay; keyboard-map';
+      f.src = url; $('frames').appendChild(f); frames[key] = f;
+    }
+    Object.keys(frames).forEach(function (k) { frames[k].classList.toggle('on', k === key); });
+    cur = key; ss('wcc_desktop_tab', key);
+    document.querySelectorAll('.dock-btn, .nav-item').forEach(function (b) { b.classList.toggle('active', b.dataset.key === key); });
+    if (key === 'desktop') { try { f.focus(); } catch (e) {} }
+  }
+  window.wccDesktopOpen = function (key) { show(key, dockUrl(key)); };
+
+  // ── WCC Menu items (menu_config.js — active:false hides an item) ──
+  MENUS.forEach(function (m) {
+    if (m.active === false) return;
+    var b = document.createElement('div'); b.className = 'nav-item'; b.dataset.key = 'menu:' + m.id; b.tabIndex = 0; b.setAttribute('role', 'button');
+    if (m.bgColor) { b.style.background = m.bgColor; b.style.borderColor = m.bgColor; }
+    if (m.textColor) b.style.color = m.textColor;
+    b.innerHTML = (m.showIcon !== false && m.icon ? '<i class="' + m.icon + '"></i>' : '') + '<span></span>';
+    b.lastChild.textContent = m.name; if (m.description) b.title = m.description;
+    var go = function () { show('menu:' + m.id, menuUrl(m)); };
+    b.onclick = go; b.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
+    $('menuItems').appendChild(b);
+  });
+
+  // ── Visibility (System Config): always | toggle | proximity ──
+  var dockVis = 'proximity', menuVis = 'proximity', menuOn = false, hideT = null;
+  function setDock(open) { $('dockWrap').classList.toggle('show', open); $('dockDot').setAttribute('aria-expanded', open ? 'true' : 'false'); }
+  function setMenu(open) { $('menu').classList.toggle('show', open); }
+  window.applyPositions = function () {
+    dockVis = ls('wcc_config_dockVisibility', 'proximity');
+    menuVis = ls('wcc_config_menuVisibility', 'proximity');
+    menuOn = ls('wcc_config_menuEnabled', 'false') === 'true';
+    var dT = Math.max(1, Math.min(500, parseInt(ls('wcc_prox_dock_threshold', '1'), 10) || 1));
+    var mT = Math.max(1, Math.min(500, parseInt(ls('wcc_prox_menu_threshold', '1'), 10) || 1));
+    // dock: the dot is always there; proximity = hovering within <distance> px of it opens the buttons
+    var hot = $('dockHot'); hot.hidden = dockVis !== 'proximity';
+    hot.style.width = (10 + 34 + dT) + 'px'; hot.style.height = (10 + 34 + dT) + 'px';
+    setDock(dockVis === 'always');
+    // menu: hidden entirely unless enabled
+    $('menu').hidden = !menuOn; $('menuTab').hidden = !menuOn || menuVis !== 'toggle'; $('menuHot').hidden = !menuOn || menuVis !== 'proximity';
+    $('menuHot').style.height = mT + 'px';
+    setMenu(menuOn && menuVis === 'always');
+  };
+  function dockEnter() { if (dockVis === 'proximity') { clearTimeout(hideT); setDock(true); } }
+  function dockLeave() { if (dockVis === 'proximity') { clearTimeout(hideT); hideT = setTimeout(function () { setDock(false); }, 350); } }
+  $('dockHot').onmouseenter = dockEnter; $('dockDot').onmouseenter = dockEnter;
+  $('dockDot').onmousemove = function () { if (!$('dockWrap').classList.contains('show')) dockEnter(); };   // re-open after a pick while still on the dot
+  $('dock').onmouseenter = function () { clearTimeout(hideT); };
+  $('dockHot').onmouseleave = dockLeave; $('dockWrap').onmouseleave = dockLeave;
+  $('dockDot').onclick = function () { if (dockVis !== 'always') setDock(!$('dockWrap').classList.contains('show')); };
+  document.querySelectorAll('.dock-btn').forEach(function (b) {
+    b.onclick = function () { window.wccDesktopOpen(b.dataset.key); if (dockVis !== 'always') setDock(false); };
+  });
+  $('menuTab').onclick = function () { setMenu(!$('menu').classList.contains('show')); };
+  $('menuHot').onmouseenter = function () { if (menuVis === 'proximity') setMenu(true); };
+  $('menu').onmouseleave = function () { if (menuVis === 'proximity') setMenu(false); };
+  window.addEventListener('storage', function (e) { if (e.key && /^wcc_(config_(dock|menu)|prox_)/.test(e.key)) window.applyPositions(); });
+  window.applyBrand = function () {};   // config.html calls parent.applyBrand() — no brand label here
+
+  window.applyPositions();
+  // server default (System Config → Save Configuration) wins, like the WCC shells
+  fetch('/api/wcc-defaults').then(function (r) { return r.ok ? r.json() : null; }).then(function (def) {
+    if (!def) return;
+    Object.keys(def).forEach(function (k) { if (/^wcc_(config|prox)_/.test(k)) { try { localStorage.setItem(k, def[k]); } catch (e) {} } });
+    window.applyPositions();
+  }).catch(function () {});
+
+  // start on the Desktop (or the page that was open in this tab)
+  var last = ss('wcc_desktop_tab') || 'desktop';
+  if (last.indexOf('menu:') === 0) {
+    var m = MENUS.filter(function (x) { return 'menu:' + x.id === last && x.active !== false; })[0];
+    if (m) show(last, menuUrl(m)); else window.wccDesktopOpen('desktop');
+  } else window.wccDesktopOpen(dockUrl(last) ? last : 'desktop');
+})();
+</script>
+</body>
+</html>

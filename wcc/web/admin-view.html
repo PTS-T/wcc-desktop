@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - Web Containers Chain</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --bg-0: #0a0e1a; --bg-1: #0e1424;
+            --surface: rgba(255, 255, 255, 0.04); --surface-2: rgba(255, 255, 255, 0.06);
+            --border: rgba(255, 255, 255, 0.09); --border-strong: rgba(255, 255, 255, 0.18);
+            --accent: #22d3ee; --text: #e5e7eb; --muted: #94a3b8; --radius: 16px;
+        }
+        * { box-sizing: border-box; }
+        body, html { height: 100%; margin: 0; padding: 0; color: var(--text); font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+        body {
+            min-height: 100vh;
+            background:
+                radial-gradient(900px 500px at 12% -10%, rgba(34, 211, 238, 0.10), transparent 60%),
+                radial-gradient(800px 500px at 100% 0%, rgba(99, 102, 241, 0.10), transparent 55%),
+                linear-gradient(180deg, var(--bg-1), var(--bg-0));
+            background-attachment: fixed;
+        }
+        .stars-small {
+            position: fixed; inset: 0; pointer-events: none; z-index: 0; width: auto; height: auto;
+            opacity: 1; box-shadow: none; animation: none;
+            background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.04) 1px, transparent 0);
+            background-size: 28px 28px;
+        }
+
+        .admin-header {
+            position: sticky; top: 0; z-index: 50;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 30px; margin-bottom: 24px;
+            background: rgba(10, 14, 26, 0.7); backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+        }
+        .user-info { display: flex; align-items: center; gap: 14px; font-size: 0.9em; color: var(--muted); }
+        .logout-btn { background: var(--surface-2); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.4); padding: 6px 13px; border-radius: 9px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: .18s; }
+        .logout-btn:hover { background: rgba(248, 113, 113, 0.15); border-color: #f87171; }
+
+        .admin-container { max-width: 1200px; margin: 0 auto; padding: 8px 24px 60px; position: relative; z-index: 20; }
+        .glass-box { background: var(--surface); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 26px; margin-bottom: 26px; box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6); }
+        h2 { color: #f1f5f9; margin: 0 0 6px; padding-bottom: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 1.2em; font-weight: 650; }
+
+        .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; color: var(--text); font-size: 0.9em; }
+        th, td { padding: 12px 12px; text-align: left; border: none; border-bottom: 1px solid rgba(255, 255, 255, 0.06); vertical-align: top; }
+        th { background: rgba(34, 211, 238, 0.07); color: var(--accent); font-weight: 650; text-transform: uppercase; font-size: 0.78em; letter-spacing: 0.5px; border-bottom: 1px solid rgba(34, 211, 238, 0.25); }
+        tbody tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+        .btn { padding: 7px 14px; border: none; border-radius: 9px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: .18s ease; display: inline-flex; align-items: center; gap: 6px; }
+        .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+        .btn:active { transform: translateY(0); }
+        .btn-success { background: #22c55e; color: #052e16; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-info { background: #38bdf8; color: #082f49; }
+        .btn-warning { background: #facc15; color: #422006; }
+
+        .role-badge { padding: 5px 13px; border-radius: 999px; font-size: 0.78em; color: #000; font-weight: 700; cursor: pointer; display: inline-block; transition: .18s; }
+        .role-badge:hover { filter: brightness(1.1); }
+        .status-pending { background: #facc15; }
+        .status-user { background: #22c55e; }
+        .status-admin { background: #a78bfa; color: #fff; }
+        .status-superadmin { background: #ef4444; color: #fff; }
+
+        .toggle-btn { border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); padding: 5px 11px; margin: 3px; border-radius: 8px; cursor: pointer; font-size: 0.75em; font-weight: 600; transition: .15s; }
+        .toggle-btn:hover { border-color: var(--border-strong); color: #fff; }
+        .group-active { background: #22c55e !important; color: #052e16 !important; border-color: transparent !important; }
+        .plan-active { background: #fbbf24 !important; color: #422006 !important; border-color: transparent !important; }
+        .plan-expired { background: #7c2d12 !important; color: #fed7aa !important; border-color: transparent !important; }
+        .perm-active { background: #38bdf8 !important; color: #082f49 !important; border-color: transparent !important; }
+        .perm-inherited { background: rgba(56, 189, 248, 0.15) !important; color: #7dd3fc !important; border: 1px dashed #38bdf8 !important; }
+
+        .perm-wrapper { margin-bottom: 10px; padding: 10px 12px; background: rgba(255, 255, 255, 0.025); border: 1px solid var(--border); border-radius: 10px; }
+        .section-label { font-size: 0.68em; color: var(--accent); text-transform: uppercase; display: block; margin-bottom: 6px; font-weight: 700; letter-spacing: 0.5px; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); z-index: 200; display: none; justify-content: center; align-items: center; }
+        .modal-box { background: #0e1424; padding: 28px; border-radius: 18px; width: 360px; border: 1px solid var(--border); box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8); }
+        .modal-box h3 { margin-top: 0; color: #f1f5f9; font-weight: 650; }
+        .modal-box input, .modal-box select { width: 100%; padding: 10px 12px; margin-bottom: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); color: var(--text); border-radius: 9px; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; }
+        .modal-box input:focus, .modal-box select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15); }
+        .modal-box select option { background: #0e1424; }
+
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        #csvInput { display: none; }
+    </style>
+</head>
+<body>
+    <div class="stars-small"></div>
+
+    <div class="admin-header">
+        <div style="display:flex; align-items:center; gap:10px; font-weight:700; font-size:1.05em; color:#f1f5f9; letter-spacing:0.3px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Admin Panel
+        </div>
+        <div class="user-info">
+            <span id="currentAdminName">Admin</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="admin-container">
+        <div class="glass-box">
+            <h2>🔐 Login Methods</h2>
+            <p style="color:#aaa; font-size:0.9em; margin-top:-6px;">Control how users can log in and how many key files each user may create.</p>
+            <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:center; margin-top:14px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="setPwdLogin"> Allow Password Login</label>
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="setKeyLogin"> Allow Key-File Login</label>
+                <label style="display:flex; align-items:center; gap:8px;">Max keys per user <input type="number" id="setMaxKeys" min="1" max="20" style="width:70px; background:#333; border:1px solid #555; color:#fff; padding:6px; border-radius:4px;"></label>
+                <button class="btn btn-success" onclick="saveAuthSettings()">💾 Save</button>
+            </div>
+            <div id="authSettingsMsg" style="margin-top:10px; font-size:0.85em;"></div>
+        </div>
+
+        <div class="glass-box">
+            <h2>📝 Sign up Methods</h2>
+            <p style="color:#aaa; font-size:0.9em; margin-top:-6px;">Control how new accounts are created from the Sign up page.</p>
+            <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:center; margin-top:14px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="setAutoApprove"> Approve immediately (become USER on sign up)</label>
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="setRequireEmail"> Require email</label>
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="setPwPolicy"> Enforce strong password</label>
+                <button class="btn btn-success" onclick="saveAuthSettings()">💾 Save</button>
+            </div>
+            <p style="color:#64748b; font-size:0.8em; margin-top:8px;">Strong password = ≥8 chars incl. lowercase, uppercase, number, and a special character. When "Approve immediately" is off, sign ups are PENDING until an admin approves them here.</p>
+        </div>
+
+        <div class="glass-box">
+            <h2>
+                👤 User Management
+                <div class="header-actions">
+                    <input type="text" id="userSearch" placeholder="🔍 Search username…" oninput="renderUserTable()" style="background:rgba(255,255,255,0.04); border:1px solid var(--border); color:var(--text); padding:7px 10px; border-radius:8px; width:180px;">
+                    <label style="color:var(--muted); font-size:0.8em; display:flex; align-items:center; gap:6px;">Show <input type="number" id="userLimit" min="1" max="1000" value="5" oninput="renderUserTable()" style="width:64px; background:rgba(255,255,255,0.04); border:1px solid var(--border); color:var(--text); padding:6px; border-radius:8px;"></label>
+                    <button class="btn btn-info" onclick="downloadCSVFormat()">📥 CSV Format</button>
+                    <button class="btn btn-warning" onclick="document.getElementById('csvInput').click()">📤 Import CSV</button>
+                    <input type="file" id="csvInput" accept=".csv" onchange="handleCSV(this)">
+                    <button class="btn btn-success" onclick="openAddUserModal()">➕ Add User</button>
+                </div>
+                <div id="userCount" style="width:100%; font-size:0.75em; color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0;"></div>
+            </h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:15%">Username</th>
+                        <th style="width:12%">Role/Status</th>
+                        <th>Groups & Individual Permissions</th>
+                        <th style="width:12%">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="glass-box">
+            <h2>🏢 Group Management <div>
+                <input type="text" id="newGroupName" style="background:#333; border:1px solid #555; color:white; padding:8px; border-radius:4px; width:150px;" placeholder="Group Name">
+                <button onclick="createGroup()" class="btn btn-success">+ Create</button>
+            </div></h2>
+            <table>
+                <thead><tr><th style="width:20%">Group Name</th><th>Shared Permissions</th><th style="width:12%">Action</th></tr></thead>
+                <tbody id="groupTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="addUserModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Add New User</h3>
+            <input type="text" id="modalUsername" placeholder="Username">
+            <input type="password" id="modalPassword" placeholder="Password">
+            <select id="modalGroupSelect"></select>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn" style="background:#444;" onclick="closeModal('addUserModal')">Cancel</button>
+                <button class="btn btn-success" onclick="confirmAddUser()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="resetPwdModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Reset Password</h3>
+            <p id="resetTargetUser" style="color:#00d2ff"></p>
+            <input type="text" id="adminNewPwd" placeholder="New Password">
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn" style="background:#444;" onclick="closeModal('resetPwdModal')">Cancel</button>
+                <button class="btn btn-success" onclick="confirmResetPwd()">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <script>document.write('<script src="menu_config.js?v=' + Date.now() + '"><\/script>');</script>
+    <script>document.write('<script src="brand_favicon.js?v=' + Date.now() + '"><\/script>');</script>
+    <script>
+        const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+        if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'superadmin')) {
+            window.top.location.href = 'index.html';
+        } else {
+            document.getElementById('currentAdminName').innerText = `👤 ${currentUser.username}`;
+            loadData();
+            loadAuthSettings();
+        }
+
+        async function loadAuthSettings() {
+            try {
+                const s = await (await fetch('/api/auth-settings')).json();
+                if (!s.success) return;
+                document.getElementById('setPwdLogin').checked = s.allowPasswordLogin;
+                document.getElementById('setKeyLogin').checked = s.allowKeyLogin;
+                document.getElementById('setMaxKeys').value = s.maxKeysPerUser;
+                document.getElementById('setAutoApprove').checked = !!s.autoApproveSignup;
+                document.getElementById('setRequireEmail').checked = !!s.signupRequireEmail;
+                document.getElementById('setPwPolicy').checked = !!s.signupPasswordPolicy;
+            } catch (e) {}
+        }
+        async function saveAuthSettings() {
+            const body = {
+                allowPasswordLogin: document.getElementById('setPwdLogin').checked,
+                allowKeyLogin: document.getElementById('setKeyLogin').checked,
+                maxKeysPerUser: parseInt(document.getElementById('setMaxKeys').value, 10),
+                autoApproveSignup: document.getElementById('setAutoApprove').checked,
+                signupRequireEmail: document.getElementById('setRequireEmail').checked,
+                signupPasswordPolicy: document.getElementById('setPwPolicy').checked
+            };
+            const res = await fetch('/api/auth-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await res.json();
+            const msg = document.getElementById('authSettingsMsg');
+            msg.style.color = data.success ? '#2ecc71' : '#ff6b6b';
+            msg.innerText = data.success ? '✅ Saved' : ('❌ ' + (data.message || 'Error'));
+        }
+
+        let allUsers = [], allGroups = [], targetUserForReset = null;
+
+        async function loadData() {
+            // Group Management = ALL groups (WCC permission groups + Plans). Plans are groups too
+            // (isPlan:true) → admin sees who's in which plan here and can add/remove manually.
+            const [u, g] = await Promise.all([fetch('/api/users'), fetch('/api/groups')]);
+            allUsers = await u.json(); allGroups = await g.json();
+            renderUserTable(); renderGroupTable();
+        }
+
+        // --- CSV Logic (ปรับปรุงให้รองรับ Column 3=webtop1, 4=webtop2) ---
+        function downloadCSVFormat() {
+            const csvContent = "username,password,perm1,perm2\nuser01,1234,webtop1,webtop2";
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", "user_import_format.csv");
+            link.click();
+        }
+
+        async function handleCSV(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const rows = e.target.result.split('\n').filter(r => r.trim() !== '');
+                let count = 0;
+                for (let i = 1; i < rows.length; i++) {
+                    const cols = rows[i].split(',').map(c => c.trim());
+                    if (cols.length < 2) continue;
+
+                    const username = cols[0];
+                    const password = cols[1];
+                    // ดึงค่า ID ตั้งแต่ column index 2 เป็นต้นไป (webtop1, webtop2...)
+                    const permissions = cols.slice(2).filter(p => p !== '');
+
+                    // ส่งเข้า API update-user หรือ create-user ตามความต้องการ
+                    // ในที่นี้ใช้ create-user เพื่อสร้าง user ใหม่พร้อมสิทธิ์ทันที
+                    const success = await apiPost('/api/create-user', {
+                        username, password, permissions, status: 'approved'
+                    });
+                    if (success) count++;
+                }
+                alert(`Imported ${count} users successfully.`);
+                input.value = '';
+                loadData();
+            };
+            reader.readAsText(file);
+        }
+
+        // --- User Rendering (รักษา Logic เดิม) ---
+        function renderUserTable() {
+            const tb = document.getElementById('userTableBody'); tb.innerHTML = '';
+            const q = (document.getElementById('userSearch').value || '').trim().toLowerCase();
+            let limit = parseInt(document.getElementById('userLimit').value, 10); if (!(limit >= 1)) limit = 5;
+            // filter by search
+            let list = allUsers.filter(u => !q || (u.username || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
+            // no search → superadmin(s) first, then the rest as-is
+            if (!q) list = [...list].sort((a, b) => (a.role === 'superadmin' ? -1 : 0) - (b.role === 'superadmin' ? -1 : 0));
+            const total = list.length;
+            list = list.slice(0, limit);
+            const cnt = document.getElementById('userCount');
+            if (cnt) cnt.innerText = 'Showing ' + list.length + ' of ' + total + (q ? (' match "' + q + '"') : ' users') + ' · edit the number to show more';
+            list.forEach(user => {
+                const tr = document.createElement('tr');
+                let isGuest = user.username === 'guest-public';
+                let displayRole = isGuest ? 'pending' : (user.role === 'admin' ? 'admin' : (user.role === 'superadmin' ? 'superadmin' : (user.status === 'approved' ? 'user' : 'pending')));
+
+                let uGroups = user.groups || [], uPerms = user.permissions || [];
+                let inherited = [];
+                uGroups.forEach(gn => {
+                    const g = allGroups.find(x => x.name === gn);
+                    if (g) inherited = [...new Set([...inherited, ...(g.permissions || [])])];
+                });
+
+                let html = `<div class="perm-wrapper"><span class="section-label">Groups</span>`;
+                allGroups.forEach(g => {
+                    const active = uGroups.includes(g.name);
+                    html += `<button class="toggle-btn ${active ? 'group-active' : ''}" onclick="toggleUserGroup('${user.username}','${g.name}')">👥 ${g.name}</button> `;
+                });
+                html += `</div><div class="perm-wrapper"><span class="section-label">Individual</span>`;
+                appConfig.menus.forEach((m, idx) => {
+                    if (m.id === 'manage_users' || m.id === 'users' || idx === 0) return;
+                    const isManual = uPerms.includes(m.id);
+                    const isInherited = inherited.includes(m.id);
+                    let btnClass = isManual ? 'perm-active' : (isInherited ? 'perm-inherited' : '');
+                    html += `<button class="toggle-btn ${btnClass}" onclick="toggleUserIndividualPerm('${user.username}','${m.id}')">${m.name}</button> `;
+                });
+                html += `</div>`;
+
+                let actionRoleHtml = isGuest ?
+                    `<span class="role-badge status-pending" style="cursor:not-allowed; opacity:0.8;" title="Guest state cannot be modified">PENDING</span>` :
+                    `<span class="role-badge status-${displayRole}" onclick="cycleUserRole('${user.username}')">${displayRole.toUpperCase()}</span>`;
+
+                tr.innerHTML = `
+                    <td><b>${user.username}</b><div style="font-size:0.82em; color:var(--muted); margin-top:3px; font-weight:400;">${user.email ? ('✉ ' + escapeText(user.email)) : '<span style=\"opacity:.5;\">no email</span>'}</div></td>
+                    <td>${actionRoleHtml}</td>
+                    <td>${html}</td>
+                    <td>
+                        <button class="btn btn-info" onclick="openResetPwd('${user.username}')">🔑</button>
+                        ${(user.role!=='superadmin' && user.username!==currentUser.username && !isGuest) ? `<button class="btn btn-danger" onclick="deleteUser('${user.username}')">Del</button>` : ''}
+                    </td>`;
+                tb.appendChild(tr);
+            });
+        }
+
+        // --- Data Logic (ตามไฟล์เดิมที่คุณส่งมา) ---
+        async function apiPost(url, data) {
+            const res = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)});
+            return (await res.json()).success;
+        }
+
+        async function cycleUserRole(username) {
+            const target = allUsers.find(u => u.username === username);
+            if (!target || target.role === 'superadmin') return;
+            let nRole = 'user', nStatus = 'approved';
+            if (currentUser.role === 'superadmin') {
+                if (target.status === 'pending') { nRole = 'user'; nStatus = 'approved'; }
+                else if (target.role === 'user') { nRole = 'admin'; nStatus = 'approved'; }
+                else { nRole = 'user'; nStatus = 'pending'; }
+            } else {
+                nStatus = target.status === 'pending' ? 'approved' : 'pending';
+            }
+            if (await apiPost('/api/update-user', { username, role: nRole, status: nStatus })) loadData();
+        }
+
+        async function toggleUserIndividualPerm(username, menuId) {
+            const user = allUsers.find(u => u.username === username);
+            let perms = [...(user.permissions || [])];
+            perms = perms.includes(menuId) ? perms.filter(p=>p!==menuId) : [...perms, menuId];
+            if(await apiPost('/api/update-user', { username, permissions: perms })) loadData();
+        }
+
+        async function toggleUserGroup(username, groupName) {
+            const user = allUsers.find(u => u.username === username);
+            let grps = [...(user.groups || [])];
+            grps = grps.includes(groupName) ? grps.filter(g=>g!==groupName) : [...grps, groupName];
+            if(await apiPost('/api/update-user', { username, groups: grps })) loadData();
+        }
+
+        function escapeText(text) { return String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+        function renderGroupTable() {
+            const tb = document.getElementById('groupTableBody'); tb.innerHTML = '';
+            allGroups.forEach(g => {
+                let p = ''; appConfig.menus.forEach((m, idx) => {
+                    if (m.id === 'manage_users' || m.id === 'users' || idx === 0) return;
+                    const active = (g.permissions || []).includes(m.id);
+                    p += `<button class="toggle-btn ${active ? 'perm-active' : ''}" onclick="toggleGroupPerm('${g.name}','${m.id}')">${m.name}</button> `;
+                });
+                const delBtn = (g.name === 'user')
+                    ? `<span style="color:var(--muted); font-size:0.8em;">base</span>`
+                    : `<button class="btn btn-danger" onclick="deleteGroup('${g.name}')">Del</button>`;
+                const nameHtml = (g.name === 'user')
+                    ? `<b>${g.name}</b> <span style="color:#34d399; font-size:0.72em;">(all USERs)</span>`
+                    : `<b>${g.name}</b>`;
+                tb.innerHTML += `<tr><td>${nameHtml}</td><td>${p}</td><td>${delBtn}</td></tr>`;
+            });
+        }
+
+        async function toggleGroupPerm(name, mId) {
+            const g = allGroups.find(x=>x.name===name);
+            let p = [...(g.permissions||[])];
+            p = p.includes(mId) ? p.filter(x=>x!==mId) : [...p, mId];
+            if(await apiPost('/api/update-group', { name, permissions: p })) loadData();
+        }
+
+        async function createGroup() { const name = document.getElementById('newGroupName').value; if(name && await apiPost('/api/create-group', { name })) { document.getElementById('newGroupName').value=''; loadData(); } }
+        async function deleteUser(u) { if(confirm('Del?')) if(await apiPost('/api/delete-user', { username:u })) loadData(); }
+        async function deleteGroup(n) { if(confirm('Del?')) if(await apiPost('/api/delete-group', { name:n })) loadData(); }
+
+        function openAddUserModal() {
+            const sel = document.getElementById('modalGroupSelect'); sel.innerHTML = '<option value="">-- No Group --</option>';
+            allGroups.forEach(g => sel.innerHTML += `<option value="${g.name}">${g.name}</option>`);
+            document.getElementById('addUserModal').style.display='flex';
+        }
+        function openResetPwd(u) { targetUserForReset=u; document.getElementById('resetTargetUser').innerText=u; document.getElementById('resetPwdModal').style.display='flex'; }
+        function closeModal(id) { document.getElementById(id).style.display='none'; }
+        function logout() { sessionStorage.clear(); window.top.location.href = 'index.html'; }
+
+        async function confirmAddUser() {
+            const u = document.getElementById('modalUsername').value, p = document.getElementById('modalPassword').value, g = document.getElementById('modalGroupSelect').value;
+            if(u && p && await apiPost('/api/create-user', { username: u, password: p, groups: g ? [g] : [], status: 'approved' })) { closeModal('addUserModal'); loadData(); }
+        }
+        async function confirmResetPwd() {
+            const p = document.getElementById('adminNewPwd').value;
+            if(await apiPost('/api/admin-reset-password', {targetUsername: targetUserForReset, newPassword: p})) { alert('Done'); closeModal('resetPwdModal'); }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Desktop settings</title>
+<style>body{color:#dbeafe;background:#0f172a;font:16px system-ui;max-width:680px;margin:40px auto;padding:20px}label{display:block;margin:24px 0}select,input,button,a{padding:10px;border-radius:8px}a{color:#7dd3fc}button{cursor:pointer}</style>
+<h1>Desktop settings</h1><label>WCC Dock visibility <select id="visibility"><option value="always">Always visible</option><option value="toggle">Toggle to show</option><option value="proximity">Proximity</option></select></label>
+<label>Proximity distance (px) <input id="distance" type="number" min="1" max="500" value="1"></label>
+<button id="save">Save for this browser</button> <a href="/home.html" target="_top">WCC Home</a><p id="status"></p>
+<script>
+const visibility=document.getElementById('visibility'),distance=document.getElementById('distance'),save=document.getElementById('save'),statusText=document.getElementById('status');
+visibility.value=localStorage.getItem('wcc_config_dockVisibility')||'proximity';distance.value=localStorage.getItem('wcc_prox_dock_threshold')||'1';
+save.onclick=()=>{localStorage.setItem('wcc_config_dockVisibility',visibility.value);localStorage.setItem('wcc_prox_dock_threshold',String(Math.max(1,Math.min(500,Number(distance.value)||1))));statusText.textContent='Saved. Reopen Desktop to apply.';};
+</script></html>

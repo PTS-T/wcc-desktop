@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+node_modules/
+__pycache__/
+*.pyc
+*.key
+*.pem
+*.crt
+*.db
+*.tar
+*.tar.gz
+*.log
+backups/
+config/
+secrets/
+.DS_Store

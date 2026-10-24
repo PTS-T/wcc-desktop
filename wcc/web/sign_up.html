@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign up — Web Containers Chain</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * { box-sizing: border-box; }
+        body, html { min-height:100%; margin:0; font-family:'Segoe UI',system-ui,sans-serif; color:#e5e7eb;
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%); overflow-x:hidden; overflow-y:auto; }
+        .wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:40px 16px; }
+        .card { width:100%; max-width:420px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+            border-radius:16px; padding:30px 28px; box-shadow:0 20px 60px -20px rgba(0,0,0,0.7); }
+        .logo { font-size:2.4rem; text-align:center; margin-bottom:8px; }
+        h2 { text-align:center; margin:0 0 4px; color:#f1f5f9; font-weight:650; }
+        p.sub { text-align:center; color:#94a3b8; font-size:0.9em; margin:0 0 22px; }
+        .input-group { margin-bottom:14px; }
+        .input-group label { display:block; font-size:0.72em; letter-spacing:1px; text-transform:uppercase; color:#94a3b8; margin-bottom:6px; }
+        .input-group input { width:100%; padding:11px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+            color:#fff; border-radius:9px; font-size:0.95em; }
+        .input-group input:focus { outline:none; border-color:#22d3ee; box-shadow:0 0 0 3px rgba(34,211,238,0.15); }
+        .btn { width:100%; padding:12px; border:none; border-radius:9px; cursor:pointer; font-weight:650; font-size:0.95em;
+            background:linear-gradient(45deg,#11998e,#38ef7d); color:#062017; margin-top:6px; }
+        .btn:hover { filter:brightness(1.08); }
+        .btn-back { background:none; border:1px solid rgba(255,255,255,0.18); color:#cbd5e1; margin-top:12px; }
+        .msg { margin-top:14px; font-size:0.88em; text-align:center; display:none; }
+        .err { color:#fca5a5; } .ok { color:#6ee7b7; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="card">
+                        <h2>Sign up</h2>
+            <p class="sub">Create a new account · an admin must approve it before you can sign in.</p>
+            <form id="registerForm">
+                <div class="input-group">
+                    <label>New Username</label>
+                    <input type="text" id="regUser" placeholder="Create Username" required>
+                </div>
+                <div class="input-group">
+                    <label id="emailLabel">Email</label>
+                    <input type="email" id="regEmail" placeholder="you@example.com">
+                </div>
+                <div class="input-group">
+                    <label>New Password</label>
+                    <input type="password" id="regPass" placeholder="Create Password" required>
+                    <div id="pwHint" style="font-size:0.72em; color:#94a3b8; margin-top:5px; display:none;">At least 8 characters · lower, upper, number, and special char</div>
+                </div>
+                <div class="input-group">
+                    <label>Confirm Password</label>
+                    <input type="password" id="regConfirm" placeholder="Confirm Password" required>
+                </div>
+                <button type="submit" class="btn">Create Account</button>
+                <div id="regError" class="msg err"></div>
+                <div id="regSuccess" class="msg ok"></div>
+            </form>
+            <button type="button" class="btn btn-back" onclick="goLogin()">← Back to Login</button>
+        </div>
+    </div>
+    <script>
+        function goLogin() {
+            // อยู่ใน iframe ของ dock → พากลับหน้า login (top) · ถ้าเปิดตรง ๆ ก็ไป index.html
+            try { if (window.top !== window.self) { window.top.location.href = 'index.html'; return; } } catch (e) {}
+            window.location.href = 'index.html';
+        }
+        let SIGNUP = { requireEmail: true, passwordPolicy: true, autoApprove: true };
+        (async () => {
+            try {
+                const s = await (await fetch('/api/signup-settings')).json();
+                if (s && s.success) {
+                    SIGNUP = s;
+                    document.getElementById('emailLabel').innerText = s.requireEmail ? 'Email (required)' : 'Email (optional)';
+                    document.getElementById('regEmail').required = !!s.requireEmail;
+                    document.getElementById('pwHint').style.display = s.passwordPolicy ? 'block' : 'none';
+                    document.querySelector('p.sub').innerText = s.autoApprove
+                        ? 'Create a new account · sign up and use it right away.'
+                        : 'Create a new account · an admin must approve it before you can sign in.';
+                }
+            } catch (e) {}
+        })();
+        document.getElementById('registerForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const user = document.getElementById('regUser').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const pass = document.getElementById('regPass').value;
+            const confirm = document.getElementById('regConfirm').value;
+            const err = document.getElementById('regError'); const ok = document.getElementById('regSuccess');
+            err.style.display = 'none'; ok.style.display = 'none';
+            if (SIGNUP.requireEmail && !email) { err.innerText = 'Please enter your email'; err.style.display = 'block'; return; }
+            if (pass !== confirm) { err.innerText = 'Passwords do not match'; err.style.display = 'block'; return; }
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass, email })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    ok.innerText = data.autoApproved
+                        ? '✅ Signed up! You can log in now.'
+                        : '✅ Signed up! Please wait for admin approval before logging in.';
+                    ok.style.display = 'block';
+                    document.getElementById('registerForm').reset();
+                } else {
+                    err.innerText = data.message || 'Sign up failed';
+                    err.style.display = 'block';
+                }
+            } catch (e2) {
+                err.innerText = 'Could not connect to server';
+                err.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

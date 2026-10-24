@@ -1,0 +1,5 @@
+#!/usr/bin/with-contenv bash
+# wcc-desktop: SSH server (configured by custom-cont-init.d/30-sshd.sh)
+mkdir -p /run/sshd
+if ! command -v sshd >/dev/null; then sleep infinity; fi
+exec /usr/sbin/sshd -D -e

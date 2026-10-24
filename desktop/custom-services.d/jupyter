@@ -1,0 +1,10 @@
+#!/usr/bin/with-contenv bash
+# wcc-desktop: JupyterLab on 127.0.0.1:8888, root /config/Desktop (the desktop's ~/Desktop), as abc (no token: only reachable through the
+# desktop's nginx, behind the WCC login — same as the desktop itself)
+[ -x /opt/jupyter/bin/jupyter ] || exec sleep infinity
+PUB=$(cat /run/wcc-public-base 2>/dev/null || echo /mawcc/desktop/)
+cd /config/Desktop
+exec s6-setuidgid abc env HOME=/config DISPLAY=:1 SHELL=/bin/bash /opt/jupyter/bin/jupyter lab --no-browser \
+  --ip=127.0.0.1 --port=8888 --ServerApp.base_url="${PUB}jupyter/" --ServerApp.root_dir=/config/Desktop --LabApp.custom_css=True \
+  --IdentityProvider.token= --ServerApp.password= --ServerApp.allow_origin='*' --ServerApp.trust_xheaders=True \
+  --ServerApp.allow_remote_access=True   # Host = the WCC domain (behind the gateway), not localhost

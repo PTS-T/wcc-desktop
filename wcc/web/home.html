@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WCC</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* --- 🌌 Deep Space Theme --- */
+        body {
+            margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif;
+            overflow: hidden; background: #090a0f;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        .header {   /* slim bar: little padding top/bottom (was min-height 60px + 8px padding) */
+            min-height: 0;
+            height: auto;
+            background: rgba(10, 10, 15, 0.95);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex; flex-wrap: nowrap; align-items: center;
+            padding: 3px 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.8);
+            z-index: 1000; position: relative; gap: 15px;
+        }
+
+        /* ส่วนซ้ายบน: WCC และปุ่มควบคุม */
+        .brand-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1px;
+        }
+
+        .brand {
+            font-size: 1.1rem; font-weight: bold; color: white; letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(0, 210, 255, 0.5); white-space: nowrap;
+        }
+
+        .brand-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mini-btn {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.65rem;
+            padding: 1px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: 0.2s;
+            text-transform: uppercase;
+        }
+
+        .mini-btn:hover {
+            border-color: #00d2ff;
+            color: #00d2ff;
+            background: rgba(0, 210, 255, 0.1);
+        }
+
+        .mini-btn.logout:hover {
+            border-color: #ff4757;
+            color: #ff4757;
+            background: rgba(255, 71, 87, 0.1);
+        }
+
+        /* Menu Container */
+        .nav-menu {
+            display: flex; flex-wrap: nowrap; gap: 6px; align-items: center;
+            flex: 1 1 auto; min-width: 0;
+        }
+        .nav-zone { display: flex; flex-wrap: nowrap; gap: 6px; align-items: center; }
+        #rightZone { margin-left: auto; }
+        .nav-item { flex: 0 0 auto; }
+        /* overflow dropdown (one per zone) */
+        .more-btn { position: relative; }
+        .more-menu { position: absolute; top: calc(100% + 6px); min-width: 180px; z-index: 2000;
+            background: rgba(20,20,28,0.98); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            display: none; flex-direction: column; gap: 4px; }
+        #leftZone .more-menu { left: 0; } #rightZone .more-menu { right: 0; }
+        .more-btn.open .more-menu { display: flex; }
+        .more-menu .nav-item { display: block; width: 100%; text-align: left; }
+
+        .nav-item {
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px; color: #ccc; cursor: pointer;
+            font-size: 0.85rem; transition: 0.2s; white-space: nowrap;
+        }
+
+        .nav-item:hover {
+            background: rgba(0, 210, 255, 0.15); color: #00d2ff; border-color: #00d2ff;
+        }
+
+        .nav-item.active {
+            background: #00d2ff; color: #000; font-weight: bold;
+            box-shadow: 0 0 12px rgba(0, 210, 255, 0.4);
+        }
+
+        /* blend buttons: inline styles keep bg/text fixed; kill hover/active box-shadow so color never changes on click */
+        .nav-item.blend:hover, .nav-item.blend.active { box-shadow: none !important; font-weight: normal !important; }
+
+        /* Main Viewport */
+        .main-container { flex: 1; position: relative; background: #000; }
+        iframe { width: 100%; height: 100%; border: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="brand-container">
+            <div class="brand">WCC</div>
+            <div class="brand-controls">
+                <button class="mini-btn" onclick="location.reload()">Refresh</button>
+                <button class="mini-btn logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
+        <div class="nav-menu" id="menuContainer"></div>
+    </div>
+
+    <div class="main-container">
+        <iframe id="mainFrame" name="mainFrame" src="" allow="clipboard-read; clipboard-write; fullscreen"></iframe>
+    </div>
+
+    <script>document.write('<script src="menu_config.js?v=' + Date.now() + '"><\/script>');</script>
+    <script>document.write('<script src="brand_favicon.js?v=' + Date.now() + '"><\/script>');</script>
+
+    <script>
+        const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+        if (!currentUser) {
+            window.location.href = 'index.html';
+        } else {
+            // Defer to the next tick so the WHOLE script runs first — generateMenu()'s
+            // tab restore calls loadPage() which uses window._wccGateKey (assigned lower
+            // down). Calling it inline threw (undefined) and aborted the restore, leaving
+            // the black body + header until a manual re-click. setTimeout fixes that.
+            setTimeout(generateMenu, 0);
+        }
+
+        function _toRgb(c){ if(!c) return null; c=String(c).trim(); let m=c.match(/^#([0-9a-fA-F]{3})$/); if(m){const h=m[1];return {r:parseInt(h[0]+h[0],16),g:parseInt(h[1]+h[1],16),b:parseInt(h[2]+h[2],16)};} m=c.match(/^#([0-9a-fA-F]{6})$/); if(m){const h=m[1];return {r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)};} m=c.match(/rgba?\(([^)]+)\)/i); if(m){const p=m[1].split(',').map(x=>parseFloat(x));return {r:p[0],g:p[1],b:p[2]};} return null; }
+        function _contrast(c){ const rgb=_toRgb(c); if(!rgb) return '#ffffff'; const L=(0.299*rgb.r+0.587*rgb.g+0.114*rgb.b)/255; return L>0.6 ? '#000000' : '#ffffff'; }
+        function generateMenu() {
+            // หน้าหลัง login = โซน private (คำนวณในนี้ กัน TDZ เพราะ generateMenu ถูกเรียกบนสุด)
+            const _HBG = appConfig.headerBgPrivate || appConfig.headerBg || '';
+            const _HTX = appConfig.headerTextPrivate || appConfig.headerText || '';
+            const hdr = document.querySelector('.header');
+            if (_HBG && hdr) hdr.style.background = _HBG;
+            if (_HTX && hdr) { hdr.style.color = _HTX; const b=document.querySelector('.brand'); if(b) b.style.color = _HTX; }
+            try { _setBrand(); } catch (e) {}   // top-left brand (private): group/project by default, or custom text from WCC Backend
+            const blendFg = _contrast(_HBG || 'rgba(10,10,15,0.95)');
+            const menuContainer = document.getElementById('menuContainer');
+            const allowedPerms = currentUser.permissions || [];
+            const leftBtns = [], rightBtns = [];   // แยกกลุ่มปุ่มชิดซ้าย/ชิดขวาในแถบ header
+            let firstAllowedUrl = '';
+
+            appConfig.menus.forEach(menu => {
+                if (menu.zone === 'public') return;   // กล่องโซน public = โชว์เฉพาะหน้า public (ไม่โชว์ในหน้า login/private)
+                const isAdmin = currentUser.role === 'admin' || currentUser.role === 'superadmin';
+                const hasPermission = allowedPerms.includes(menu.id);
+
+                let canSee = false;
+
+                // --- แก้ไขจุดที่ 1: เงื่อนไขการมองเห็น ---
+                if (menu.id === 'users' || menu.id === 'payment') {
+                    // บังคับให้ทุกคนที่ login เห็นปุ่ม User Panel + Payment (หน้าเลือกซื้อแพ็กเกจ)
+                    canSee = true;
+                } else if (menu.adminOnly) {
+                    if (isAdmin) canSee = true;
+                } else {
+                    if (hasPermission || isAdmin) canSee = true;
+                }
+
+                if (menu.active === false) {
+                    canSee = false; // ถูกปิดใช้งาน
+                }
+
+                if (canSee) {
+                    const btn = document.createElement('div');
+                    btn.className = 'nav-item';
+
+                    if (menu.blend) {
+                        // กลมกลืนกับ header: พื้นใส · ตัวอักษรสีตรงข้าม header · ไม่เปลี่ยนสีตอน hover/active (inline ชนะ CSS)
+                        btn.classList.add('blend');
+                        btn.style.backgroundColor = 'transparent';
+                        btn.style.borderColor = 'transparent';
+                        btn.style.color = blendFg;
+                    } else {
+                        if (menu.bgColor) {
+                            btn.style.backgroundColor = menu.bgColor;
+                            btn.style.borderColor = menu.bgColor;
+                        }
+                        if (menu.textColor) {
+                            btn.style.color = menu.textColor;
+                        }
+                    }
+
+                    let iconHtml = '';
+                    if (menu.showIcon && menu.icon) {
+                        iconHtml = `<i class="${menu.icon}" style="margin-right: 5px;"></i>`;
+                    }
+                    btn.innerHTML = iconHtml + menu.name;
+
+                    btn.onclick = () => {
+                        const targetType = menu.type || 'x-frame';
+                        // {HOST} → current hostname, so links to sibling containers
+                        // (e.g. multi-agent-kung on another port) stay portable.
+                        const url = (menu.url || '').replace('{HOST}', window.location.hostname);
+                        if (targetType === 'pop-up') {
+                            window.open(url, '_blank');
+                        } else if (targetType === 'pop-up-self') {
+                            window.open(url, '_self');
+                        } else {
+                            loadPage(url, btn);
+                        }
+                    };
+                    btn._menuUrl = menu.url;
+                    btn._pinned = (menu.id === 'users' || menu.id === 'payment');
+
+                    ((menu.align === 'right') ? rightBtns : leftBtns).push(btn);
+
+                    if (!firstAllowedUrl && (menu.type === 'x-frame' || !menu.type)) {
+                        firstAllowedUrl = menu.url;
+                    }
+                }
+            });
+
+            // Responsive single-row header: two zones (left/right) + a per-zone overflow
+            // dropdown. Collapse priority (client spec): right-zone non-pinned first (L→R),
+            // then left-zone (R→L, so Project/Agent Chat go last), then the pinned
+            // User Panel + Upgrade last. Minimum = just the 2 zone dropdowns.
+            menuContainer.innerHTML = '';
+            const leftZone = document.createElement('div'); leftZone.className = 'nav-zone'; leftZone.id = 'leftZone';
+            const rightZone = document.createElement('div'); rightZone.className = 'nav-zone'; rightZone.id = 'rightZone';
+            menuContainer.appendChild(leftZone); menuContainer.appendChild(rightZone);
+            function mkMore(side){
+                const m = document.createElement('div'); m.className = 'nav-item more-btn'; m.title = 'More';
+                m.innerHTML = '<i class="fas fa-ellipsis-h"></i>';
+                const menu = document.createElement('div'); menu.className = 'more-menu'; m.appendChild(menu);
+                m.onclick = (e) => { if (e.target.closest('.more-menu')) return; e.stopPropagation();
+                    document.querySelectorAll('.more-btn.open').forEach(x => { if (x !== m) x.classList.remove('open'); });
+                    m.classList.toggle('open'); };
+                return m;
+            }
+            const leftMore = mkMore('left'), rightMore = mkMore('right');
+            document.addEventListener('click', () => document.querySelectorAll('.more-btn.open').forEach(x => x.classList.remove('open')));
+            const rightNonPinned = rightBtns.filter(b => !b._pinned);
+            const rightPinned = rightBtns.filter(b => b._pinned);
+            const hideOrder = rightNonPinned.concat(leftBtns.slice().reverse()).concat(rightPinned);
+            function render(k){
+                const hidden = new Set(hideOrder.slice(0, k));
+                leftZone.innerHTML = ''; rightZone.innerHTML = '';
+                const lm = leftMore.querySelector('.more-menu'); lm.innerHTML = '';
+                const rm = rightMore.querySelector('.more-menu'); rm.innerHTML = '';
+                leftBtns.forEach(b => { if (hidden.has(b)) lm.appendChild(b); else leftZone.appendChild(b); });
+                if (lm.children.length) { leftZone.appendChild(leftMore); leftMore.style.display = ''; } else leftMore.style.display = 'none';
+                const rHidden = rightBtns.filter(b => hidden.has(b));
+                if (rHidden.length) { rightZone.appendChild(rightMore); rightMore.style.display = ''; rHidden.forEach(b => rm.appendChild(b)); } else rightMore.style.display = 'none';
+                rightBtns.forEach(b => { if (!hidden.has(b)) rightZone.appendChild(b); });
+            }
+            function overflowing(){ return menuContainer.scrollWidth > menuContainer.clientWidth + 2; }
+            window._wccFitHeader = function(){ let k = 0; render(0); while (overflowing() && k < hideOrder.length) { k++; render(k); } };
+            window._wccFitHeader();
+            let _rzT; window.addEventListener('resize', () => { clearTimeout(_rzT); _rzT = setTimeout(window._wccFitHeader, 120); });
+            try { new ResizeObserver(() => window._wccFitHeader()).observe(menuContainer); } catch (e) {}
+
+            // Restore last active tab; ALWAYS fall back to a frame-capable menu so a
+            // refresh/Refresh never lands on a blank/black screen (needing a manual re-click).
+            const _allBtns = menuContainer.querySelectorAll('.nav-item');
+            const _savedUrl = sessionStorage.getItem('wcc_active_tab_url');
+            let _restored = false;
+            if (_savedUrl) { _allBtns.forEach(btn => { if (!_restored && btn._menuUrl === _savedUrl) { btn.click(); _restored = true; } }); }
+            if (!_restored) {
+                let _fb = null;
+                if (firstAllowedUrl) _allBtns.forEach(btn => { if (!_fb && btn._menuUrl === firstAllowedUrl) _fb = btn; });
+                if (!_fb && _allBtns.length > 0) _fb = _allBtns[0];
+                if (_fb) _fb.click();
+            }
+        }
+
+        // WCC_TOOLS_GATE (v2): per-project service gating. Default = OFF (opt-in).
+        // Reads the mirror Agent Chat writes (wcc_tools:<group>/<project>); if the
+        // mirror is missing for the current project, fetches the real flags once.
+        function _wccCurProj() {
+            var g = localStorage.getItem('dd_mg_group') || 'default';
+            var p = localStorage.getItem('dd_mg_proj') || '';
+            if (!p) { var sf = localStorage.getItem('wcc_side_projfilter') || ''; if (sf.indexOf('proj:groups/') === 0) { var s = sf.replace('proj:groups/', '').split('/').filter(Boolean); g = s[0] || g; p = s[1] || ''; } }
+            return { g: g, p: p };
+        }
+        function _wccToolFlags() {
+            var cp = _wccCurProj(); if (!cp.p) return null;
+            try { var v = JSON.parse(localStorage.getItem('wcc_tools:' + cp.g + '/' + cp.p) || 'null'); return (v && typeof v === 'object') ? v : null; } catch (e) { return null; }
+        }
+        window._wccGateKey = function (url) {
+            if (/^\/n8n\//.test(url)) return 'n8n';
+            if (/^\/airflow\//.test(url)) return 'airflow';
+            if (/^\/draw\//.test(url)) return 'draw';
+            if (/^\/latex\/llm/.test(url)) return 'aidd';
+            if (/^\/latex\//.test(url)) return 'doc';
+            if (/^\/influxdb\//.test(url)) return 'influxdb';
+            if (/^\/grafana\//.test(url)) return 'grafana';
+            if (/^\/vlp-server/.test(url) || /^\/vpn\//.test(url)) return 'vlp';
+            if (/^\/mawcc\/desktop\//.test(url)) return 'desktop';
+            return '';
+        };
+        function _wccDisabledFromFlags(key, f) {
+            if (key === 'aidd') return (f.draw === false) && (f.doc === false);
+            if (key === 'desktop') return f.desktop !== true;   // opt-in (Agent Chat → Tools → Desktop)
+            return f[key] === false;
+        }
+        window._wccServiceDisabled = function () { return false; };
+        function _wccFetchFlags(cb) {
+            var cp = _wccCurProj();
+            if (!cp.p) { if (cb) cb(); return; }
+            var done = false, fin = function () { if (done) return; done = true; if (cb) cb(); };
+            setTimeout(fin, 3000);   // never leave the gate's blank (black) frame hanging if the fetch stalls
+            var chan = 'proj:groups/' + (cp.g || 'default') + '/' + cp.p;
+            Promise.resolve({ok: true, json: function(){ return Promise.resolve({tools: {desktop: true}}); }})
+                .then(function (r) { return r.json(); })
+                .then(function (d) { if (d && d.tools) { try { localStorage.setItem('wcc_tools:' + (cp.g || 'default') + '/' + cp.p, JSON.stringify(d.tools)); } catch (e) {} } })
+                .catch(function () {})
+                .then(function () { fin(); });
+        }
+        function _wccShowGate(url, el, host, frames, loading) {
+            Object.values(frames).forEach(function (fr) { fr.style.display = 'none'; });
+            if (window._wccGateFrame) window._wccGateFrame.style.display = 'none';
+            var bf = window._wccGateFrame;
+            if (!bf) { bf = document.createElement('iframe'); bf.style.cssText = 'width:100%;height:100%;border:none;display:block;'; host.appendChild(bf); window._wccGateFrame = bf; }
+            bf.removeAttribute('src');
+            if (loading) {
+                bf.srcdoc = '<!doctype html><body style="margin:0;height:100vh;background:#0b0b0d;"></body>';
+            } else {
+                bf.srcdoc = '<!doctype html><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0b0d;color:#9aa0a6;font-family:system-ui,-apple-system,sans-serif;text-align:center;"><div><div style="font-size:40px;margin-bottom:14px;">&#128683;</div><div style="font-size:16px;">This service is not enabled for this project.</div><div style="color:#5f6368;font-size:13px;margin-top:8px;">Enable it in Agent Chat &rarr; Tools.</div></div></body>';
+            }
+            bf.style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(function (i) { i.classList.remove('active'); });
+            if (el) el.classList.add('active');
+            sessionStorage.setItem('wcc_active_tab_url', url);
+        }
+        window.addEventListener('storage', function (e) {   // live re-eval on toggle
+            if (!e || !e.key || e.key.indexOf('wcc_tools:') !== 0) return;
+            var activeUrl = sessionStorage.getItem('wcc_active_tab_url');
+            if (!activeUrl || !window._wccGateKey(activeUrl)) return;
+            var el = document.querySelector('.nav-item.active');
+            var frames = window._wccFrames || {};
+            if (window._wccServiceDisabled(activeUrl)) { loadPage(activeUrl, el); }
+            else { var fr = frames[activeUrl]; if (!fr || fr.style.display === 'none') loadPage(activeUrl, el); }
+        });
+
+        function _brandShort(x) { x = x || ""; return x.length > 7 ? (x.slice(0, 6) + "\u2026") : x; }   // >7 chars -> abbreviate (first 6 + ellipsis)
+        function _setBrand() {
+            var b = document.querySelector(".brand"); if (!b) return;
+            var bp = (appConfig.brandPrivate || "").trim();
+            var low = bp.toLowerCase();
+            var full = (bp === "{project}" || low === "group/project");                                   // full group/project, never abbreviate
+            var shrt = (!bp || bp === "{project:short}" || low === "group/project (short)" || low.indexOf("group/project (\u0e22") === 0);  // default + explicit short / (\u0e22\u0e48\u0e2d)
+            if (full || shrt) {
+                var cp = _wccCurProj();
+                if (cp.p === "public") {             // 🌐 public is shared by everyone and has no group
+                    b.textContent = "public"; b.title = "public";
+                } else if (cp.p === "_group") {      // 🏠 a group's room (groups/<group>/_group) → G-<group>
+                    var gn = cp.g === "default" ? "Private" : cp.g;
+                    b.textContent = "G-" + (shrt ? _brandShort(gn) : gn); b.title = "group room of " + gn;
+                } else if (cp.p) {                   // the "default" group folder is shown as Private (as in Agent Chat)
+                    var gl = cp.g === "default" ? "Private" : cp.g;
+                    b.textContent = shrt ? (_brandShort(gl) + "/" + _brandShort(cp.p)) : (gl + "/" + cp.p);
+                    b.title = gl + "/" + cp.p;
+                } else { b.textContent = "WCC"; b.title = "current project (group/project)"; }
+                b.style.fontSize = "0.9rem";
+            } else { b.textContent = bp; b.title = ""; }
+        }
+
+        function loadPage(url, el, _gchecked) {
+            // Keep one iframe PER menu url (hide/show) instead of swapping a single
+            // frame's src, so switching to another app (Open WebUI, ...) and back
+            // keeps the previous page (e.g. Multi-Agent) exactly where it was.
+            const mainFrame = document.getElementById('mainFrame');
+            const host = mainFrame.parentNode;
+            if (!window._wccFrames) window._wccFrames = {};
+            const frames = window._wccFrames;
+            var _gk = window._wccGateKey(url);   // WCC_TOOLS_GATE check
+            if (_gk) {
+                var _flags = _wccToolFlags();
+                if (_flags) {
+                    if (_wccDisabledFromFlags(_gk, _flags)) { _wccShowGate(url, el, host, frames, false); return; }
+                } else if (!_gchecked && _wccCurProj().p) {
+                    _wccShowGate(url, el, host, frames, true);        // blank while we fetch
+                    _wccFetchFlags(function () { loadPage(url, el, true); });
+                    return;
+                }
+            }
+            if (window._wccGateFrame) window._wccGateFrame.style.display = 'none';
+            if (Object.keys(frames).length === 0) frames[url] = mainFrame; // adopt existing frame
+            // detect a click on the tab that is ALREADY open+visible
+            const _reclickActive = (sessionStorage.getItem("wcc_active_tab_url") === url) && frames[url] && frames[url].getAttribute("data-wcc-url") === url;
+            Object.values(frames).forEach(fr => fr.style.display = 'none');
+            let f = frames[url];
+            if (!f) {
+                f = document.createElement('iframe');
+                f.setAttribute('allow', 'clipboard-read; clipboard-write; fullscreen');
+                f.setAttribute('allowfullscreen', '');
+                f.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+                host.appendChild(f);
+                frames[url] = f;
+            }
+            // (re)load only if this frame isn't already showing this url — so a
+            // revisit keeps its state, but a first load actually gets its src set.
+            if (f.getAttribute('data-wcc-url') !== url) {
+                f.src = url;
+                f.setAttribute('data-wcc-url', url);
+            } else if (_reclickActive || (window._wccGateKey && (window._wccGateKey(url) === 'n8n' || window._wccGateKey(url) === 'airflow'))) {
+                // WCC_ALWAYS_RELOAD: re-clicking the active tab OR opening n8n/Airflow =
+                // fresh reload (so agent-created flows/DAGs show without a manual refresh).
+                try { f.contentWindow.location.reload(); } catch (e) { f.src = url; }
+            }
+            f.style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            if (el) el.classList.add('active');
+            sessionStorage.setItem('wcc_active_tab_url', url);
+        }
+
+        // WCC_PROJ_FRAME_RELOAD: when the active project changes in Agent Chat (same-origin), the
+        // per-project services (n8n/airflow) auto-login per project at page load,
+        // so a cached iframe keeps showing the PREVIOUS project until reloaded.
+        // Reload the visible one immediately; drop hidden ones so they reload fresh
+        // next open. Draw/Doc self-sync internally, so we leave them alone.
+        window.addEventListener('storage', function (e) {
+            if (!e) return;
+            if (e.key !== 'dogdoc_active_project' && e.key !== 'dd_mg_proj' && e.key !== 'wcc_project' && e.key !== 'dd_mg_group') return;   // dd_mg_group: G-Private → G-test keeps dd_mg_proj "_group"
+            if (e.newValue === e.oldValue) return;
+            try { _setBrand(); } catch (e2) {}
+            const frames = window._wccFrames || {};
+            const activeUrl = sessionStorage.getItem('wcc_active_tab_url');
+            Object.keys(frames).forEach(function (url) {
+                if (!(/^\/(n8n|airflow|grafana|influxdb|vpn)\//.test(url) || url.indexOf('/vlp-server') === 0)) return;
+                const f = frames[url]; if (!f) return;
+                if (url === activeUrl && f.style.display !== 'none') {
+                    try { f.contentWindow.location.reload(); } catch (err) { f.src = url; }
+                } else {
+                    f.removeAttribute('data-wcc-url');
+                    try { f.src = 'about:blank'; } catch (err) {}
+                }
+            });
+        });
+
+        async function logout() {
+            await fetch("/api/logout", {method:"POST"});
+            sessionStorage.clear();
+            // Clear SSO bridge so VPN page won't auto-login after logout
+            localStorage.removeItem('wcc_sso_user');
+            localStorage.removeItem('wcc_sso_pass');
+            localStorage.removeItem('wcc_active_tab_url');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
