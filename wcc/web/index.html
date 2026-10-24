@@ -203,6 +203,7 @@
 
             <div id="loginSection" class="form-section active">
                 <form id="loginForm">
+                    <div id="passwordLoginFields">
                     <div class="input-group">
                         <label>ACCESS ID</label>
                         <input type="text" id="loginUser" placeholder="Username">
@@ -212,6 +213,7 @@
                         <input type="password" id="loginPass" placeholder="Password">
                     </div>
 
+                    </div>
                     <div class="key-login-block">
                     <div id="insecureNotice" style="display:none; background:rgba(255,180,0,.12); border:1px solid rgba(255,180,0,.45); border-radius:10px; padding:12px; margin:10px 0; font-size:0.85em; color:#ffd479; text-align:left; line-height:1.5;">
                         🔒 Key login requires <b>HTTPS</b> (browsers allow WebCrypto only in a secure context — this page was opened over HTTP)
@@ -224,14 +226,16 @@
                         <button type="button" class="btn-auth btn-auth-secondary" style="margin-top:0;" onclick="document.getElementById('keyFileInput').click()">📁 Choose Key File</button>
                         <div id="keyFileName" style="font-size:0.8em; color:#aaa; margin-top:8px;">or drag &amp; drop your key here</div>
                     </div>
+                    <p id="keyModeHelp" style="display:none; font-size:0.85em; color:#9ddcff; margin:12px 0;">ใช้ไฟล์คีย์ที่เลือกเพื่อเข้าสู่ระบบ</p>
+                    <button type="button" id="clearKeyFile" class="btn-auth btn-auth-secondary" style="display:none;" onclick="clearSelectedKey()">ใช้ชื่อผู้ใช้ / รหัสผ่าน</button>
                     <div id="keyPassphraseGroup" class="input-group" style="display:none; margin-top:12px;">
-                        <label for="keyPassphrase">KEY PASSPHRASE</label>
-                        <input type="password" id="keyPassphrase" autocomplete="off" placeholder="Unlock your encrypted key">
+                        <label for="keyPassphrase">KEY PASSPHRASE · รหัสปลดล็อกไฟล์คีย์</label>
+                        <input type="password" id="keyPassphrase" autocomplete="off" placeholder="รหัสปลดล็อกที่ได้รับคู่กับไฟล์คีย์">
                     </div>
                     <div id="keyError" class="error"></div>
                     </div>
 
-                    <button type="submit" class="btn-auth btn-auth-primary">Connect</button>
+                    <button type="submit" id="connectButton" class="btn-auth btn-auth-primary">Connect</button>
                     <div id="loginError" class="error"></div>
                 </form>
             </div>
@@ -439,7 +443,7 @@
         }
 
         // ---- Key-file login (ECDSA P-256 challenge-response via WebCrypto) ----
-        let loadedKeyText = null;
+        let loadedKeyText = null, keyFileReading = false, keyReadSerial = 0, keyLoginBusy = false;
         function b64ToBuf(b64) { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
         function bufToB64(buf) { const u = new Uint8Array(buf); let bin = ''; for (let i = 0; i < u.length; i++) bin += String.fromCharCode(u[i]); return btoa(bin); }
         // WebCrypto (key login) only works in a secure context (HTTPS or localhost).
@@ -455,10 +459,44 @@
         (function initKeyUI() {
             const inp = document.getElementById('keyFileInput');
             const drop = document.getElementById('keyDrop');
-            function readFile(f) { if (!f) return; const r = new FileReader(); r.onload = e => { loadedKeyText = e.target.result; document.getElementById('keyFileName').innerText = '\u2705 ' + f.name;
-                let encrypted=false;try{encrypted=JSON.parse(loadedKeyText).type==='wcc-encrypted-login-key';}catch(_){}
+            function showKeyMode(encrypted) {
+                document.getElementById('passwordLoginFields').style.display='none';
+                document.getElementById('keyModeHelp').style.display='block';
+                document.getElementById('keyModeHelp').textContent=encrypted
+                    ? 'กรอกรหัสปลดล็อกที่ได้รับคู่กับไฟล์คีย์ในช่องด้านล่าง แล้วกด Unlock & Connect'
+                    : 'ใช้ไฟล์คีย์ที่เลือกเพื่อเข้าสู่ระบบ';
+                document.getElementById('clearKeyFile').style.display='inline-block';
                 document.getElementById('keyPassphraseGroup').style.display=encrypted?'block':'none';
-                document.getElementById('keyPassphrase').value=''; }; r.readAsText(f); }
+                document.getElementById('connectButton').textContent=encrypted?'Unlock & Connect':'Connect with Key';
+                if(encrypted) document.getElementById('keyPassphrase').focus();
+            }
+            window.clearSelectedKey=function(){
+                ++keyReadSerial;keyFileReading=false;loadedKeyText=null;inp.value='';
+                document.getElementById('keyPassphrase').value='';
+                document.getElementById('keyFileName').textContent='or drag & drop your key here';
+                document.getElementById('passwordLoginFields').style.display='';
+                document.getElementById('keyPassphraseGroup').style.display='none';
+                document.getElementById('keyModeHelp').style.display='none';
+                document.getElementById('clearKeyFile').style.display='none';
+                document.getElementById('keyError').style.display='none';
+                document.getElementById('connectButton').textContent='Connect';
+                document.getElementById('loginUser').focus();
+            };
+            function readFile(f) {
+                if(!f)return;
+                const serial=++keyReadSerial,r=new FileReader();keyFileReading=true;
+                r.onload=e=>{
+                    if(serial!==keyReadSerial)return;
+                    keyFileReading=false;loadedKeyText=e.target.result;
+                    document.getElementById('keyFileName').textContent='\u2705 '+f.name;
+                    document.getElementById('keyError').style.display='none';
+                    let encrypted=false;try{encrypted=JSON.parse(loadedKeyText).type==='wcc-encrypted-login-key';}catch(_){}
+                    // Keep an entered unlock phrase when the user reselects or drops the file again.
+                    showKeyMode(encrypted);
+                };
+                r.onerror=()=>{if(serial!==keyReadSerial)return;window.clearSelectedKey();const error=document.getElementById('keyError');error.textContent='อ่านไฟล์คีย์ไม่สำเร็จ กรุณาเลือกไฟล์อีกครั้ง';error.style.display='block';};
+                r.readAsText(f);
+            }
             if (inp) inp.addEventListener('change', e => readFile(e.target.files[0]));
             if (drop) {
                 ['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
@@ -468,12 +506,18 @@
         })();
 
         async function loginWithKey() {
+            if(keyLoginBusy)return;
+            keyLoginBusy=true;
             const errorMsg = document.getElementById('keyError'); errorMsg.style.display = 'none';
             try {
                 if (!window.crypto || !window.crypto.subtle || !window.isSecureContext) { setupSecureContext(); throw new Error('Key login needs HTTPS — use the "Open via HTTPS" button above'); }
                 if (!loadedKeyText) throw new Error('Please choose your key file first.');
                 let obj; try { obj = JSON.parse(loadedKeyText); } catch (_) { throw new Error('Invalid key file format.'); }
-                if (obj.type === 'wcc-encrypted-login-key') obj = await WccKeyEnvelope.decryptKey(obj, document.getElementById('keyPassphrase').value);
+                if (obj.type === 'wcc-encrypted-login-key') {
+                    const phrase=document.getElementById('keyPassphrase');
+                    if(!phrase.value){phrase.focus();throw new Error('กรอกรหัสปลดล็อกในช่อง KEY PASSPHRASE ใต้ชื่อไฟล์คีย์');}
+                    obj=await WccKeyEnvelope.decryptKey(obj,phrase.value);
+                }
                 if (!obj.username || !obj.privateKey) throw new Error('Key file is missing username or private key.');
                 const cRes = await fetch('/api/key-challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: obj.username }) });
                 const cData = await cRes.json();
@@ -489,6 +533,7 @@
                     window.location.href = 'home.html';
                 } else { throw new Error(data.message || 'Key login failed'); }
             } catch (err) { errorMsg.innerText = err.message; errorMsg.style.display = 'block'; }
+            finally {keyLoginBusy=false;}
         }
 
         (function(){ const _f = document.getElementById('loginForm'); if (!_f) return; _f.addEventListener('submit', async function (e) {
@@ -497,6 +542,7 @@
             errorMsg.style.display = 'none';
 
             // ถ้าเลือก key file ไว้ → ใช้ key login ก่อน (ตามที่ตั้งค่า: มี key ให้ใช้ key ก่อน)
+            if(keyFileReading){const err=document.getElementById('keyError');err.textContent='กำลังอ่านไฟล์คีย์ กรุณารอสักครู่';err.style.display='block';return;}
             if (loadedKeyText) { return loginWithKey(); }
 
             const user = document.getElementById('loginUser').value;

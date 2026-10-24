@@ -6,8 +6,10 @@
 
 1. Download the JSON file with GitHub's **Download raw file** action.
 2. Open the installation's HTTPS login page and choose **Choose Key File**.
-3. Select the downloaded JSON, enter its separate **KEY PASSPHRASE**, and press **Connect**. Username/password fields may remain empty.
+3. Select the downloaded JSON. The username/password fields hide automatically and the **KEY PASSPHRASE** input is focused. Enter its separate unlock phrase and press **Unlock & Connect**. Reselecting the file keeps a phrase already entered.
 4. Once signed in, use **User Panel** to create your own replacement key. After verifying the replacement works, delete **Initial Key** from User Panel to revoke it.
+
+Use **ใช้ชื่อผู้ใช้ / รหัสผ่าน** to clear the selected key and return to password login.
 
 The browser decrypts the key locally and signs a short-lived one-time challenge. The passphrase and decrypted private key are not sent to the server. Legacy unencrypted `.key` files continue to work.
 
