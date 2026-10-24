@@ -220,9 +220,13 @@
                     </div>
                     <div class="key-or">— or use a key file (if a key is selected, it is used first) —</div>
                     <div id="keyDrop">
-                        <input type="file" id="keyFileInput" accept=".key" style="display:none">
+                        <input type="file" id="keyFileInput" accept=".key,.json" style="display:none">
                         <button type="button" class="btn-auth btn-auth-secondary" style="margin-top:0;" onclick="document.getElementById('keyFileInput').click()">📁 Choose Key File</button>
                         <div id="keyFileName" style="font-size:0.8em; color:#aaa; margin-top:8px;">or drag &amp; drop your key here</div>
+                    </div>
+                    <div id="keyPassphraseGroup" class="input-group" style="display:none; margin-top:12px;">
+                        <label for="keyPassphrase">KEY PASSPHRASE</label>
+                        <input type="password" id="keyPassphrase" autocomplete="off" placeholder="Unlock your encrypted key">
                     </div>
                     <div id="keyError" class="error"></div>
                     </div>
@@ -234,6 +238,7 @@
         </div>
     </div>
 
+    <script src="key-envelope.js"></script>
     <script>document.write('<script src="menu_config.js?v=' + Date.now() + '"><\/script>');</script>
     <script>document.write('<script src="brand_favicon.js?v=' + Date.now() + '"><\/script>');</script>
 
@@ -450,7 +455,10 @@
         (function initKeyUI() {
             const inp = document.getElementById('keyFileInput');
             const drop = document.getElementById('keyDrop');
-            function readFile(f) { if (!f) return; const r = new FileReader(); r.onload = e => { loadedKeyText = e.target.result; document.getElementById('keyFileName').innerText = '\u2705 ' + f.name; }; r.readAsText(f); }
+            function readFile(f) { if (!f) return; const r = new FileReader(); r.onload = e => { loadedKeyText = e.target.result; document.getElementById('keyFileName').innerText = '\u2705 ' + f.name;
+                let encrypted=false;try{encrypted=JSON.parse(loadedKeyText).type==='wcc-encrypted-login-key';}catch(_){}
+                document.getElementById('keyPassphraseGroup').style.display=encrypted?'block':'none';
+                document.getElementById('keyPassphrase').value=''; }; r.readAsText(f); }
             if (inp) inp.addEventListener('change', e => readFile(e.target.files[0]));
             if (drop) {
                 ['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
@@ -465,6 +473,7 @@
                 if (!window.crypto || !window.crypto.subtle || !window.isSecureContext) { setupSecureContext(); throw new Error('Key login needs HTTPS — use the "Open via HTTPS" button above'); }
                 if (!loadedKeyText) throw new Error('Please choose your key file first.');
                 let obj; try { obj = JSON.parse(loadedKeyText); } catch (_) { throw new Error('Invalid key file format.'); }
+                if (obj.type === 'wcc-encrypted-login-key') obj = await WccKeyEnvelope.decryptKey(obj, document.getElementById('keyPassphrase').value);
                 if (!obj.username || !obj.privateKey) throw new Error('Key file is missing username or private key.');
                 const cRes = await fetch('/api/key-challenge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: obj.username }) });
                 const cData = await cRes.json();
@@ -474,6 +483,7 @@
                 const res = await fetch('/api/login-key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: obj.username, signature: bufToB64(sig) }) });
                 const data = await res.json();
                 if (data.success) {
+                    document.getElementById('keyPassphrase').value='';
                     sessionStorage.setItem('isLoggedIn', 'true');
                     sessionStorage.setItem('currentUser', JSON.stringify(data.user));
                     window.location.href = 'home.html';

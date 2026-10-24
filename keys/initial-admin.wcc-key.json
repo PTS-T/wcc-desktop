@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "type": "wcc-encrypted-login-key",
+  "cipher": "AES-256-GCM",
+  "kdf": {
+    "name": "PBKDF2",
+    "hash": "SHA-256",
+    "iterations": 600000,
+    "salt": "WfO9v2X1i52sZ5ZhymM7Ng=="
+  },
+  "iv": "/TAnFEBx1W5vHfmb",
+  "ciphertext": "vppLhwm9d+msIonZgiDxU/j93AXFNZhYAmVIF98dhM3wYeUkLxWBzwj0mfBg+G2cNRX7k90oKbculj4yoeQjz1l4vsa1evuMatJIo2dGg2vmc75G2XW4+hbIrVvfR5+a5D+TPiWNtjO1GXA2HVuZyukyl7W/Cqvi9CmEcQkUjS6andw9yYxhUPOPJPG5g/rvYlgbhRlH7+dLqNKV2y8nzvJCBmwCpqvP3doA/2Qr5blrwq7Eb4aklgeAG0viMYglKuPXlTpRc+RYL4MFsT5OZOlJEQVq6dvye6kJQLm95lq3kefbE/KBvEfzyxNWriMyPSetKn8BOjfjZRPs/WMRnr1EpPEDjq+TRVu02bWd1NA9cB7GLNH1ITtjht0lrmwJhaVM8NcmNVSiHKhcgA=="
+}

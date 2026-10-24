@@ -60,6 +60,12 @@ python3 scripts/setup.py --admin-user owner --http-port 6688 --https-port 6443
 
 คำสั่ง setup จะไม่เขียนทับ `.env` ที่มีอยู่ หากต้องการแก้ port ให้แก้ `.env` แล้วสั่ง `docker compose up -d` อย่าเปลี่ยน `MONGO_PASSWORD` หลัง MongoDB ถูกสร้างแล้วโดยไม่เปลี่ยนรหัสในฐานข้อมูลด้วย ค่า admin ใน `.env` ใช้สร้างบัญชีเมื่อยังไม่มีบัญชีชื่อนั้นเท่านั้น การเปลี่ยนรหัสหลังติดตั้งให้ใช้ User Panel หรือ Admin Panel
 
+### Login ด้วย Initial Key
+
+ใน `keys/initial-admin.wcc-key.json` มี Initial Key แบบเข้ารหัสสำหรับเครื่องทดลองที่ผู้ดูแลลงทะเบียนไว้ ดาวน์โหลดไฟล์ JSON → เปิดหน้า HTTPS Login → **Choose Key File** → ใส่ **KEY PASSPHRASE** ที่ได้รับแยกต่างหาก → **Connect** ช่อง Username/Password เว้นว่างได้
+
+รหัสปลดล็อกไม่อยู่ใน Git และ browser ถอดรหัสในเครื่องก่อนลงชื่อ challenge ดูขั้นตอนใช้งาน/สร้าง key ของตัวเอง/เพิกถอนที่ [keys/README.md](keys/README.md) การติดตั้งใหม่ยังใช้บัญชีที่สร้างจาก `.env` ของตนเอง และไม่ได้ import key ทดลองนี้โดยอัตโนมัติ
+
 ### HTTPS certificate ที่เชื่อถือ
 
 นำ certificate และ private key ของโดเมนมาแทนไฟล์ใน TLS volume แล้ว restart gateway เช่น:
